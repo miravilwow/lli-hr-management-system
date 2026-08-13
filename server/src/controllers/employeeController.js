@@ -81,15 +81,16 @@ async function remove(req, res) {
 
 async function history(req, res) {
   const employeeId = Number(req.params.id);
-  const entries = await employeeService.getEmployeeHistory(employeeId);
 
-  // An employee with no history at all is one that never existed; a real
-  // record always has at least its Create entry.
-  if (!entries.length) {
+  // Existence has to be checked against the employee itself. Inferring it
+  // from "has no audit rows" was wrong: every seeded employee predates the
+  // audit trail, so a legitimate record with an empty history was being
+  // reported as missing.
+  if (!(await employeeService.employeeExists(employeeId))) {
     throw new ApiError(404, 'Employee not found');
   }
 
-  res.json(entries);
+  res.json(await employeeService.getEmployeeHistory(employeeId));
 }
 
 module.exports = { list, getById, create, update, remove, history };

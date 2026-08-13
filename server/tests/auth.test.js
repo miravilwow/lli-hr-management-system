@@ -2,9 +2,10 @@
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 
-const { app, request, api, closePool, CREDENTIALS } = require('./helpers');
+const { app, request, api, purgeFixtures, closePool, CREDENTIALS } = require('./helpers');
 
 after(async () => {
+  await purgeFixtures();
   await closePool();
 });
 

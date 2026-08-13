@@ -1,10 +1,11 @@
-const { test, describe, after } = require('node:test');
+﻿const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 
-const { app, request, closePool, CREDENTIALS } = require('./helpers');
+const { app, request, purgeFixtures, closePool, CREDENTIALS } = require('./helpers');
 
 after(async () => {
+  await purgeFixtures();
   await closePool();
 });
 

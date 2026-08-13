@@ -374,6 +374,23 @@ async function deleteEmployee(employeeId, actorId) {
   }
 }
 
+/**
+ * Existence check that deliberately ignores DeletedAt.
+ *
+ * Reads of the record itself exclude soft-deleted rows, but the history
+ * has to outlive the deletion - that is what retaining the row is for.
+ */
+async function employeeExists(employeeId) {
+  const pool = await getPool();
+
+  const result = await pool
+    .request()
+    .input('employeeId', sql.Int, employeeId)
+    .query('SELECT TOP 1 EmployeeId FROM dbo.Employees WHERE EmployeeId = @employeeId');
+
+  return result.recordset.length > 0;
+}
+
 /** Full change history for one employee, newest first. */
 async function getEmployeeHistory(employeeId) {
   const pool = await getPool();
@@ -407,5 +424,6 @@ module.exports = {
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  employeeExists,
   getEmployeeHistory,
 };

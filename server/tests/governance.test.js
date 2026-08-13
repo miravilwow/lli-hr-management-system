@@ -1,9 +1,10 @@
-const { test, describe, after } = require('node:test');
+﻿const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { app, request, api, buildEmployee, cleanup, closePool } = require('./helpers');
+const { app, request, api, buildEmployee, cleanup, purgeFixtures, closePool } = require('./helpers');
 
 after(async () => {
+  await purgeFixtures();
   await closePool();
 });
 
@@ -306,5 +307,18 @@ describe('C-03 audit trail', () => {
   test('history for an employee that never existed is 404', async () => {
     const res = await api('get', '/api/v1/employees/99999999/history');
     assert.equal(res.status, 404);
+  });
+
+  // Regression: existence used to be inferred from "has audit rows", so
+  // every seeded employee - all of which predate the audit trail - was
+  // reported as missing when its history was requested.
+  test('an employee that predates the audit trail returns an empty history, not 404', async () => {
+    const seeded = await api('get', '/api/v1/employees?search=EMP-001');
+    const employeeId = seeded.body.data[0].employeeId;
+
+    const res = await api('get', `/api/v1/employees/${employeeId}/history`);
+
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body));
   });
 });

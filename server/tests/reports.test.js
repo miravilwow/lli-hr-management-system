@@ -1,9 +1,10 @@
 ﻿const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { api, closePool } = require('./helpers');
+const { api, purgeFixtures, closePool } = require('./helpers');
 
 after(async () => {
+  await purgeFixtures();
   await closePool();
 });
 
