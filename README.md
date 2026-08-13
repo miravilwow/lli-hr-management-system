@@ -146,16 +146,40 @@ database, rather than failing on the first request.
 
 ### 4. Start the frontend
 
-In a second terminal:
-
 ```bash
 cd client
 npm install
 cp .env.example .env     # on Windows: copy .env.example .env
+```
+
+Then, from the **repository root**, start both services with one command:
+
+```bash
+npm install     # first time only, installs the runner
 npm run dev
 ```
 
+```
+[api] [db] connected to localhost:1433/LLI_HR_DB
+[api] [server] listening on http://localhost:5000
+[web] VITE ready - Local: http://localhost:5173/
+```
+
 Open **http://localhost:5173**.
+
+> Prefer separate terminals? `npm run dev:server` and `npm run dev:client`
+> run them individually.
+
+### Root-level scripts
+
+| Command | What it does |
+|---|---|
+| `npm run install:all` | Installs root, server and client dependencies |
+| `npm run dev` | Starts the API and the frontend together |
+| `npm test` | Runs the API test suite |
+| `npm run lint` | Lints the client |
+| `npm run build` | Production build of the client |
+| `npm run check` | Lint, build and test — what CI runs |
 
 ---
 

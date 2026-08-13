@@ -23,3 +23,6 @@ Thumbs.db
 
 # Vite
 client/dist/
+
+# Root runner
+/node_modules/
