@@ -2,19 +2,18 @@ const employeeService = require('../services/employeeService');
 const { ApiError } = require('../middleware/errorHandler');
 
 async function list(req, res) {
-  const { search, departmentId, status, sortBy, sortOrder } = req.query;
-
-  const page = Number(req.query.page) || 1;
-  const pageSize = Math.min(Number(req.query.pageSize) || 10, 100);
+  // Query parameters are validated and coerced by listQueryRules, so
+  // anything present here is already the right type and in range.
+  const { search, departmentId, status, sortBy, sortOrder, page, pageSize } = req.query;
 
   const result = await employeeService.listEmployees({
-    search: search?.trim() || undefined,
-    departmentId: departmentId ? Number(departmentId) : undefined,
-    status: status || undefined,
+    search: search || undefined,
+    departmentId,
+    status,
     sortBy,
     sortOrder,
-    page,
-    pageSize,
+    page: page ?? 1,
+    pageSize: pageSize ?? 10,
   });
 
   res.json(result);

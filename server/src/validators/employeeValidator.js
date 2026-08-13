@@ -1,9 +1,54 @@
-const { body, param } = require('express-validator');
+const { body, param, query } = require('express-validator');
+
+const { SORTABLE_COLUMNS } = require('../services/employeeService');
 
 const idParamRule = [
   param('id')
     .isInt({ min: 1 })
     .withMessage('Employee id must be a positive integer'),
+];
+
+// Treat an empty string the same as an absent parameter, so a cleared
+// filter in the UI is not rejected as invalid input.
+const optionalQuery = { values: 'falsy' };
+
+/**
+ * Without these, page and pageSize reach the OFFSET/FETCH clause
+ * unchecked and a negative value fails inside SQL Server as a 500.
+ */
+const listQueryRules = [
+  query('page')
+    .optional(optionalQuery)
+    .isInt({ min: 1 })
+    .withMessage('Page must be a positive integer')
+    .toInt(),
+  query('pageSize')
+    .optional(optionalQuery)
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Page size must be between 1 and 100')
+    .toInt(),
+  query('departmentId')
+    .optional(optionalQuery)
+    .isInt({ min: 1 })
+    .withMessage('Department must be a valid id')
+    .toInt(),
+  query('status')
+    .optional(optionalQuery)
+    .isIn(['Active', 'Inactive'])
+    .withMessage("Status must be either 'Active' or 'Inactive'"),
+  query('search')
+    .optional(optionalQuery)
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Search term must be 100 characters or fewer'),
+  query('sortBy')
+    .optional(optionalQuery)
+    .isIn(SORTABLE_COLUMNS)
+    .withMessage(`Sort column must be one of: ${SORTABLE_COLUMNS.join(', ')}`),
+  query('sortOrder')
+    .optional(optionalQuery)
+    .isIn(['asc', 'desc'])
+    .withMessage("Sort order must be 'asc' or 'desc'"),
 ];
 
 const employeeRules = [
@@ -52,4 +97,4 @@ const employeeRules = [
     .withMessage("Status must be either 'Active' or 'Inactive'"),
 ];
 
-module.exports = { idParamRule, employeeRules };
+module.exports = { idParamRule, employeeRules, listQueryRules };

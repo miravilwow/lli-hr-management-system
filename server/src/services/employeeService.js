@@ -203,6 +203,7 @@ async function deleteEmployee(employeeId) {
 }
 
 module.exports = {
+  SORTABLE_COLUMNS: Object.keys(SORTABLE),
   listEmployees,
   getEmployeeById,
   createEmployee,
