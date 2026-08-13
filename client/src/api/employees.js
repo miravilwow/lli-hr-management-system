@@ -16,6 +16,10 @@ export function updateEmployee(id, payload) {
   return api.put(`/employees/${id}`, payload).then((res) => res.data);
 }
 
+export function deleteEmployee(id) {
+  return api.delete(`/employees/${id}`);
+}
+
 export function fetchDepartments() {
   return api.get('/departments').then((res) => res.data);
 }

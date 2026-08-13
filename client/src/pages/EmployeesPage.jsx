@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Card, Flex, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Flex, Input, Popconfirm, Select, Space, Table, Tag, Typography } from 'antd';
 
-import { fetchDepartments, fetchEmployees } from '../api/employees';
+import { deleteEmployee, fetchDepartments, fetchEmployees } from '../api/employees';
 import { getErrorMessage } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/format';
 import EmployeeFormModal from '../components/EmployeeFormModal';
@@ -31,6 +31,16 @@ export default function EmployeesPage() {
   const openEdit = (employee) => {
     setEditing(employee);
     setFormOpen(true);
+  };
+
+  const handleDelete = async (employee) => {
+    try {
+      await deleteEmployee(employee.employeeId);
+      message.success(`${employee.firstName} ${employee.lastName} deleted`);
+      load();
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Could not delete the employee'));
+    }
   };
 
   useEffect(() => {
@@ -102,12 +112,26 @@ export default function EmployeesPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 90,
+      width: 140,
       fixed: 'right',
       render: (_, row) => (
-        <Button type="link" size="small" style={{ padding: 0 }} onClick={() => openEdit(row)}>
-          Edit
-        </Button>
+        <Space size="small">
+          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => openEdit(row)}>
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete this employee?"
+            description={`${row.firstName} ${row.lastName} will be permanently removed.`}
+            okText="Delete"
+            okButtonProps={{ danger: true }}
+            cancelText="Cancel"
+            onConfirm={() => handleDelete(row)}
+          >
+            <Button type="link" size="small" danger style={{ padding: 0 }}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
