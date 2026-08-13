@@ -11,8 +11,22 @@ const INITIAL_QUERY = {
   search: '',
   departmentId: undefined,
   status: undefined,
+  sortBy: undefined,
+  sortOrder: undefined,
   page: 1,
   pageSize: 10,
+};
+
+// Table column key -> the sort key the API accepts. Anything not listed
+// here is not sortable server-side.
+const SORT_KEYS = {
+  employeeCode: 'employeeCode',
+  name: 'lastName',
+  departmentName: 'department',
+  position: 'position',
+  salary: 'salary',
+  hireDate: 'hireDate',
+  status: 'status',
 };
 
 export default function EmployeesPage() {
@@ -53,6 +67,8 @@ export default function EmployeesPage() {
         search: query.search || undefined,
         departmentId: query.departmentId,
         status: query.status,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
         page: query.page,
         pageSize: query.pageSize,
       });
@@ -71,6 +87,20 @@ export default function EmployeesPage() {
 
   // A filter change invalidates the current page number.
   const updateFilter = (patch) => setQuery((prev) => ({ ...prev, ...patch, page: 1 }));
+
+  // Paging and sorting arrive together from the table, so both are folded
+  // into one state update and produce a single request.
+  const handleTableChange = (pagination, _filters, sorter) => {
+    const sortBy = sorter?.order ? SORT_KEYS[sorter.columnKey] : undefined;
+
+    setQuery((prev) => ({
+      ...prev,
+      page: pagination.current,
+      pageSize: pagination.pageSize,
+      sortBy,
+      sortOrder: sortBy ? (sorter.order === 'descend' ? 'desc' : 'asc') : undefined,
+    }));
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -100,28 +130,72 @@ export default function EmployeesPage() {
     }
   };
 
+  // Sorting is applied in SQL, so the column only declares that it is
+  // sortable and the server decides the order.
+  const sortOrderFor = (key) => {
+    if (query.sortBy !== SORT_KEYS[key]) return null;
+    return query.sortOrder === 'desc' ? 'descend' : 'ascend';
+  };
+
   const columns = [
-    { title: 'Code', dataIndex: 'employeeCode', width: 110 },
+    {
+      title: 'Code',
+      dataIndex: 'employeeCode',
+      key: 'employeeCode',
+      width: 110,
+      sorter: true,
+      sortOrder: sortOrderFor('employeeCode'),
+    },
     {
       title: 'Name',
       key: 'name',
+      sorter: true,
+      sortOrder: sortOrderFor('name'),
       render: (_, row) => `${row.firstName} ${row.lastName}`,
     },
-    { title: 'Email', dataIndex: 'email', ellipsis: true },
-    { title: 'Department', dataIndex: 'departmentName', width: 190 },
-    { title: 'Position', dataIndex: 'position', width: 190 },
+    { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
+    {
+      title: 'Department',
+      dataIndex: 'departmentName',
+      key: 'departmentName',
+      width: 190,
+      sorter: true,
+      sortOrder: sortOrderFor('departmentName'),
+    },
+    {
+      title: 'Position',
+      dataIndex: 'position',
+      key: 'position',
+      width: 190,
+      sorter: true,
+      sortOrder: sortOrderFor('position'),
+    },
     {
       title: 'Salary',
       dataIndex: 'salary',
+      key: 'salary',
       width: 140,
       align: 'right',
+      sorter: true,
+      sortOrder: sortOrderFor('salary'),
       render: formatCurrency,
     },
-    { title: 'Hire Date', dataIndex: 'hireDate', width: 130, render: formatDate },
+    {
+      title: 'Hire Date',
+      dataIndex: 'hireDate',
+      key: 'hireDate',
+      width: 130,
+      sorter: true,
+      sortOrder: sortOrderFor('hireDate'),
+      render: formatDate,
+    },
     {
       title: 'Status',
       dataIndex: 'status',
+      key: 'status',
       width: 100,
+      sorter: true,
+      sortOrder: sortOrderFor('status'),
       render: (status) => <Tag color={status === 'Active' ? 'green' : 'default'}>{status}</Tag>,
     },
     {
@@ -197,13 +271,13 @@ export default function EmployeesPage() {
         columns={columns}
         dataSource={rows}
         scroll={{ x: 1100 }}
+        onChange={handleTableChange}
         pagination={{
           current: query.page,
           pageSize: query.pageSize,
           total,
           showSizeChanger: true,
           showTotal: (count, range) => `${range[0]}-${range[1]} of ${count} employees`,
-          onChange: (page, pageSize) => setQuery((prev) => ({ ...prev, page, pageSize })),
         }}
       />
 
