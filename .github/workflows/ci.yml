@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server:
+    name: API tests
+    runs-on: ubuntu-latest
+
+    # The suite runs against a real SQL Server rather than a mock, so the
+    # schema, the queries and the driver configuration are all exercised.
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_PASSWORD || 'Ci_Local_Pass_2026!' }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
+
+    env:
+      DB_SERVER: localhost
+      DB_PORT: "1433"
+      DB_NAME: LLI_HR_DB
+      DB_USER: sa
+      DB_PASSWORD: ${{ secrets.CI_MSSQL_PASSWORD || 'Ci_Local_Pass_2026!' }}
+      DB_ENCRYPT: "true"
+      DB_TRUST_SERVER_CERTIFICATE: "true"
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
+      JWT_EXPIRES_IN: 8h
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Create the database schema
+        run: node .github/scripts/run-sql.js db/01_schema.sql master
+
+      - name: Seed the database
+        run: node .github/scripts/run-sql.js db/02_seed.sql LLI_HR_DB
+
+      - name: Run API tests
+        working-directory: server
+        run: npm test
+
+  client:
+    name: Client build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Lint
+        working-directory: client
+        run: npm run lint
+
+      - name: Build
+        working-directory: client
+        run: npm run build
