@@ -96,6 +96,31 @@ describe('GET /api/v1/auth/me', () => {
     assert.match(res.body.message, /expired/i);
   });
 
+  // Regression: a token from before roles existed was silently treated as
+  // a Viewer. /auth/me reported the real role from the database, so the UI
+  // showed the write controls while every write came back 403.
+  test('rejects a token with no role claim rather than downgrading it', async () => {
+    const legacy = jwt.sign({ sub: 1, username: 'admin' }, process.env.JWT_SECRET);
+
+    const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${legacy}`);
+
+    assert.equal(res.status, 401);
+    assert.match(res.body.message, /sign in again/i);
+  });
+
+  test('a role-less token cannot reach a write route either', async () => {
+    const legacy = jwt.sign({ sub: 1, username: 'admin' }, process.env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/v1/employees')
+      .set('Authorization', `Bearer ${legacy}`)
+      .send({});
+
+    // 401 (sign in again), not 403 (you lack permission) - the session is
+    // unusable, which is a different problem from lacking a permission.
+    assert.equal(res.status, 401);
+  });
+
   test('rejects a token for a user that no longer exists', async () => {
     const ghost = jwt.sign({ sub: 999999, username: 'ghost' }, process.env.JWT_SECRET);
 

@@ -17,12 +17,22 @@ function requireAuth(req, res, next) {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
+    // A token issued before roles existed carries no role claim. Quietly
+    // treating it as a Viewer produced a genuinely confusing state: the
+    // UI asked /auth/me, got the real role from the database and showed
+    // the write controls, while every write was refused with 403. The
+    // token is the authority for authorisation, so one without a role is
+    // not usable - reject it and let the client sign in again.
+    if (!payload.role) {
+      return next(
+        new ApiError(401, 'Your session predates a permissions change, please sign in again')
+      );
+    }
+
     req.user = {
       userId: payload.sub,
       username: payload.username,
-      // Tokens issued before roles existed carry no role. Default to the
-      // lower privilege rather than silently granting write access.
-      role: payload.role || 'Viewer',
+      role: payload.role,
     };
 
     return next();
