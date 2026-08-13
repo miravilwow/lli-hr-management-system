@@ -15,6 +15,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Set by AuthProvider so an expired session can be handled inside React
+// rather than by forcing a full page load.
+let onUnauthorized = null;
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
 // A 401 on any request other than the login call means the session is gone.
 api.interceptors.response.use(
   (response) => response,
@@ -23,9 +31,7 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem(TOKEN_KEY);
-      if (window.location.pathname !== '/login') {
-        window.location.assign('/login');
-      }
+      onUnauthorized?.();
     }
 
     return Promise.reject(error);

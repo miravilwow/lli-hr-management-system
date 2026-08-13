@@ -1,8 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Alert, App, Button, Card, Form, Input, Typography } from 'antd';
 import { Navigate, useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../context/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { getErrorMessage } from '../api/client';
 
 export default function LoginPage() {
@@ -69,7 +69,7 @@ export default function LoginPage() {
             label="Password"
             rules={[{ required: true, message: 'Please enter your password' }]}
           >
-            <Input.Password placeholder="••••••••" size="large" />
+            <Input.Password placeholder="Enter your password" size="large" />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" size="large" block loading={submitting}>

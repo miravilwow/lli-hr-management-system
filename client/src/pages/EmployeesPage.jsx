@@ -4,7 +4,16 @@ import { App, Button, Card, Flex, Input, Popconfirm, Select, Space, Table, Tag, 
 import { deleteEmployee, fetchDepartments, fetchEmployees } from '../api/employees';
 import { getErrorMessage } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/format';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import EmployeeFormModal from '../components/EmployeeFormModal';
+
+const INITIAL_QUERY = {
+  search: '',
+  departmentId: undefined,
+  status: undefined,
+  page: 1,
+  pageSize: 10,
+};
 
 export default function EmployeesPage() {
   const { message } = App.useApp();
@@ -14,14 +23,54 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
 
-  const [filters, setFilters] = useState({
-    search: '',
-    departmentId: undefined,
-    status: undefined,
-  });
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 10 });
+  // What the user is typing, and the settled value the API is asked for.
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput, 400);
+
+  const [query, setQuery] = useState(INITIAL_QUERY);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  useEffect(() => {
+    fetchDepartments()
+      .then(setDepartments)
+      .catch((err) => message.error(getErrorMessage(err, 'Could not load departments')));
+  }, [message]);
+
+  // Fold the settled search term into the query, resetting to page 1 in
+  // the same update so only one request is issued.
+  useEffect(() => {
+    setQuery((prev) =>
+      prev.search === debouncedSearch ? prev : { ...prev, search: debouncedSearch, page: 1 }
+    );
+  }, [debouncedSearch]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await fetchEmployees({
+        search: query.search || undefined,
+        departmentId: query.departmentId,
+        status: query.status,
+        page: query.page,
+        pageSize: query.pageSize,
+      });
+      setRows(result.data);
+      setTotal(result.total);
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Could not load employees'));
+    } finally {
+      setLoading(false);
+    }
+  }, [query, message]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // A filter change invalidates the current page number.
+  const updateFilter = (patch) => setQuery((prev) => ({ ...prev, ...patch, page: 1 }));
 
   const openCreate = () => {
     setEditing(null);
@@ -37,45 +86,18 @@ export default function EmployeesPage() {
     try {
       await deleteEmployee(employee.employeeId);
       message.success(`${employee.firstName} ${employee.lastName} deleted`);
-      load();
+
+      // Stepping back a page avoids landing on an empty last page after
+      // deleting the only row on it.
+      const wasLastRowOnPage = rows.length === 1 && query.page > 1;
+      if (wasLastRowOnPage) {
+        setQuery((prev) => ({ ...prev, page: prev.page - 1 }));
+      } else {
+        load();
+      }
     } catch (err) {
       message.error(getErrorMessage(err, 'Could not delete the employee'));
     }
-  };
-
-  useEffect(() => {
-    fetchDepartments()
-      .then(setDepartments)
-      .catch((err) => message.error(getErrorMessage(err, 'Could not load departments')));
-  }, [message]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await fetchEmployees({
-        search: filters.search || undefined,
-        departmentId: filters.departmentId,
-        status: filters.status,
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-      });
-      setRows(result.data);
-      setTotal(result.total);
-    } catch (err) {
-      message.error(getErrorMessage(err, 'Could not load employees'));
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, pagination, message]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // Any filter change invalidates the current page number.
-  const updateFilter = (patch) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
-    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   const columns = [
@@ -95,19 +117,12 @@ export default function EmployeesPage() {
       align: 'right',
       render: formatCurrency,
     },
-    {
-      title: 'Hire Date',
-      dataIndex: 'hireDate',
-      width: 130,
-      render: formatDate,
-    },
+    { title: 'Hire Date', dataIndex: 'hireDate', width: 130, render: formatDate },
     {
       title: 'Status',
       dataIndex: 'status',
       width: 100,
-      render: (status) => (
-        <Tag color={status === 'Active' ? 'green' : 'default'}>{status}</Tag>
-      ),
+      render: (status) => <Tag color={status === 'Active' ? 'green' : 'default'}>{status}</Tag>,
     },
     {
       title: 'Actions',
@@ -148,17 +163,18 @@ export default function EmployeesPage() {
       </Flex>
 
       <Space wrap style={{ marginBottom: 16 }}>
-        <Input.Search
+        <Input
           allowClear
           placeholder="Search name, email, code or position"
           style={{ width: 320 }}
-          onSearch={(value) => updateFilter({ search: value })}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
         />
         <Select
           allowClear
           placeholder="All departments"
           style={{ width: 220 }}
-          value={filters.departmentId}
+          value={query.departmentId}
           onChange={(value) => updateFilter({ departmentId: value })}
           options={departments.map((d) => ({ value: d.DepartmentId, label: d.DepartmentName }))}
         />
@@ -166,7 +182,7 @@ export default function EmployeesPage() {
           allowClear
           placeholder="All statuses"
           style={{ width: 160 }}
-          value={filters.status}
+          value={query.status}
           onChange={(value) => updateFilter({ status: value })}
           options={[
             { value: 'Active', label: 'Active' },
@@ -182,12 +198,12 @@ export default function EmployeesPage() {
         dataSource={rows}
         scroll={{ x: 1100 }}
         pagination={{
-          current: pagination.page,
-          pageSize: pagination.pageSize,
+          current: query.page,
+          pageSize: query.pageSize,
           total,
           showSizeChanger: true,
           showTotal: (count, range) => `${range[0]}-${range[1]} of ${count} employees`,
-          onChange: (page, pageSize) => setPagination({ page, pageSize }),
+          onChange: (page, pageSize) => setQuery((prev) => ({ ...prev, page, pageSize })),
         }}
       />
 

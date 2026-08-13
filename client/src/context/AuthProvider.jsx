@@ -1,10 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import api, { TOKEN_KEY } from '../api/client';
+import api, { TOKEN_KEY, setUnauthorizedHandler } from '../api/client';
+import { AuthContext } from './authContext';
 
-const AuthContext = createContext(null);
-
-export function AuthProvider({ children }) {
+export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initialising, setInitialising] = useState(true);
 
@@ -25,6 +24,14 @@ export function AuthProvider({ children }) {
       .finally(() => setInitialising(false));
   }, []);
 
+  // When the API reports the session is gone, clear the user and let
+  // ProtectedRoute redirect. Reloading the page here instead would throw
+  // away all in-memory state and flash a blank screen.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   const login = useCallback(async (username, password) => {
     const { data } = await api.post('/auth/login', { username, password });
     localStorage.setItem(TOKEN_KEY, data.token);
@@ -43,14 +50,4 @@ export function AuthProvider({ children }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error('useAuth must be used inside an AuthProvider');
-  }
-
-  return context;
 }

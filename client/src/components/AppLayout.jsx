@@ -1,7 +1,8 @@
+﻿import { DownOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../context/AuthContext';
+import useAuth from '../hooks/useAuth';
 
 const { Header, Sider, Content } = Layout;
 
@@ -68,7 +69,7 @@ export default function AppLayout() {
             <Button type="text">
               <Space>
                 {user?.fullName || user?.username}
-                <span aria-hidden>▾</span>
+                <DownOutlined style={{ fontSize: 10 }} />
               </Space>
             </Button>
           </Dropdown>

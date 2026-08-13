@@ -1,8 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+﻿import { Navigate, Route, Routes } from 'react-router-dom';
 
 import AppLayout from './components/AppLayout';
 import ProtectedRoute from './components/ProtectedRoute';
-import { AuthProvider } from './context/AuthContext';
+import AuthProvider from './context/AuthProvider';
 import EmployeesPage from './pages/EmployeesPage';
 import LoginPage from './pages/LoginPage';
 import ReportPage from './pages/ReportPage';
