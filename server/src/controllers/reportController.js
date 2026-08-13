@@ -11,7 +11,12 @@ function readFilters(query) {
 }
 
 async function employeeReport(req, res) {
-  const report = await reportService.getEmployeeReport(readFilters(req.query));
+  const report = await reportService.getEmployeeReport({
+    ...readFilters(req.query),
+    page: Number(req.query.page) || 1,
+    pageSize: Number(req.query.pageSize) || 25,
+  });
+
   res.json(report);
 }
 
@@ -31,7 +36,8 @@ const CSV_COLUMNS = [
 ];
 
 async function exportEmployeeReport(req, res) {
-  const { rows, summary } = await reportService.getEmployeeReport(readFilters(req.query));
+  // Exports use the unpaged query: a partial export would be misleading.
+  const { rows, summary } = await reportService.getEmployeeReportForExport(readFilters(req.query));
 
   const csv = toCsv(rows, CSV_COLUMNS);
 
