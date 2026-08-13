@@ -1,9 +1,22 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { App, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Col,
+  DatePicker,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Row,
+  Select,
+} from 'antd';
 
 import { createEmployee, updateEmployee } from '../api/employees';
 import { getErrorMessage } from '../api/client';
+import { formatCurrency } from '../utils/format';
 
 /**
  * Handles both adding and editing. Passing an `employee` switches the
@@ -12,7 +25,14 @@ import { getErrorMessage } from '../api/client';
 export default function EmployeeFormModal({ open, employee, departments, onClose, onSaved }) {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+
   const [submitting, setSubmitting] = useState(false);
+
+  // The concurrency token for the record as currently loaded. Held in
+  // state rather than read from the prop, because resolving a conflict
+  // adopts a newer token without the parent re-rendering.
+  const [rowVersion, setRowVersion] = useState(null);
+  const [conflict, setConflict] = useState(null);
 
   const isEdit = Boolean(employee);
 
@@ -20,14 +40,18 @@ export default function EmployeeFormModal({ open, employee, departments, onClose
   useEffect(() => {
     if (!open) return;
 
+    setConflict(null);
+
     if (employee) {
       form.setFieldsValue({
         ...employee,
         salary: Number(employee.salary),
         hireDate: dayjs(employee.hireDate),
       });
+      setRowVersion(employee.rowVersion);
     } else {
       form.resetFields();
+      setRowVersion(null);
     }
   }, [open, employee, form]);
 
@@ -41,19 +65,44 @@ export default function EmployeeFormModal({ open, employee, departments, onClose
 
     try {
       if (isEdit) {
-        await updateEmployee(employee.employeeId, payload);
+        // The server refuses the write if the record changed since it
+        // was loaded, rather than silently overwriting the other edit.
+        await updateEmployee(employee.employeeId, { ...payload, rowVersion });
         message.success('Employee updated');
       } else {
         await createEmployee(payload);
         message.success('Employee created');
       }
+
       onSaved();
       onClose();
     } catch (err) {
+      const current = err?.response?.data?.details?.current;
+
+      // Someone else saved while this form was open. Show what the
+      // record looks like now instead of only refusing the save.
+      if (err?.response?.status === 409 && current) {
+        setConflict(current);
+        return;
+      }
+
       message.error(getErrorMessage(err, 'Could not save the employee'));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /** Replaces the form contents with the values saved by the other user. */
+  const loadCurrentValues = () => {
+    form.setFieldsValue({
+      ...conflict,
+      salary: Number(conflict.salary),
+      hireDate: dayjs(conflict.hireDate),
+    });
+
+    setRowVersion(conflict.rowVersion);
+    setConflict(null);
+    onSaved();
   };
 
   return (
@@ -67,6 +116,29 @@ export default function EmployeeFormModal({ open, employee, departments, onClose
       destroyOnHidden
       width={720}
     >
+      {conflict && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="This record was changed by someone else"
+          description={
+            <>
+              <div style={{ marginBottom: 8 }}>
+                It is now <strong>{conflict.position}</strong> in{' '}
+                <strong>{conflict.departmentName}</strong> at{' '}
+                <strong>{formatCurrency(conflict.salary)}</strong>, status{' '}
+                <strong>{conflict.status}</strong>.
+              </div>
+              <div>Your changes were not saved, so nothing was overwritten.</div>
+              <Button size="small" style={{ marginTop: 10 }} onClick={loadCurrentValues}>
+                Load the current values
+              </Button>
+            </>
+          }
+        />
+      )}
+
       <Form
         form={form}
         layout="vertical"

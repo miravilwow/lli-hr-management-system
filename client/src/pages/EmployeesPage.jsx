@@ -5,6 +5,7 @@ import { deleteEmployee, fetchDepartments, fetchEmployees } from '../api/employe
 import { getErrorMessage } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/format';
 import useDebouncedValue from '../hooks/useDebouncedValue';
+import useAuth from '../hooks/useAuth';
 import EmployeeFormModal from '../components/EmployeeFormModal';
 
 const INITIAL_QUERY = {
@@ -31,6 +32,10 @@ const SORT_KEYS = {
 
 export default function EmployeesPage() {
   const { message } = App.useApp();
+
+  // The server enforces this regardless; hiding the controls just avoids
+  // offering a viewer actions that would come back as 403.
+  const { isAdmin } = useAuth();
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -198,7 +203,10 @@ export default function EmployeesPage() {
       sortOrder: sortOrderFor('status'),
       render: (status) => <Tag color={status === 'Active' ? 'green' : 'default'}>{status}</Tag>,
     },
-    {
+  ];
+
+  if (isAdmin) {
+    columns.push({
       title: 'Actions',
       key: 'actions',
       width: 140,
@@ -210,7 +218,7 @@ export default function EmployeesPage() {
           </Button>
           <Popconfirm
             title="Delete this employee?"
-            description={`${row.firstName} ${row.lastName} will be permanently removed.`}
+            description={`${row.firstName} ${row.lastName} will be removed from the active list. The record and its history are retained.`}
             okText="Delete"
             okButtonProps={{ danger: true }}
             cancelText="Cancel"
@@ -222,8 +230,8 @@ export default function EmployeesPage() {
           </Popconfirm>
         </Space>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <Card>
@@ -231,9 +239,11 @@ export default function EmployeesPage() {
         <Typography.Title level={4} style={{ margin: 0 }}>
           Employees
         </Typography.Title>
-        <Button type="primary" onClick={openCreate}>
-          Add employee
-        </Button>
+        {isAdmin && (
+          <Button type="primary" onClick={openCreate}>
+            Add employee
+          </Button>
+        )}
       </Flex>
 
       <Space wrap style={{ marginBottom: 16 }}>

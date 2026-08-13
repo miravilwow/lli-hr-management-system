@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import {
   App,
   Button,
@@ -36,6 +36,10 @@ export default function ReportPage() {
     range: null,
   });
 
+  // The row list is paged by the server; the summary and breakdown are
+  // aggregates over the whole filtered set and are not affected by it.
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 25 });
+
   useEffect(() => {
     fetchDepartments()
       .then(setDepartments)
@@ -56,13 +60,19 @@ export default function ReportPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setReport(await fetchEmployeeReport(toQuery()));
+      setReport(await fetchEmployeeReport({ ...toQuery(), ...pagination }));
     } catch (err) {
       message.error(getErrorMessage(err, 'Could not generate the report'));
     } finally {
       setLoading(false);
     }
-  }, [toQuery, message]);
+  }, [toQuery, pagination, message]);
+
+  // A filter change invalidates the current page number.
+  const updateFilter = (patch) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
 
   useEffect(() => {
     load();
@@ -151,7 +161,7 @@ export default function ReportPage() {
             placeholder="All departments"
             style={{ width: 220 }}
             value={filters.departmentId}
-            onChange={(value) => setFilters((p) => ({ ...p, departmentId: value }))}
+            onChange={(value) => updateFilter({ departmentId: value })}
             options={departments.map((d) => ({
               value: d.departmentId,
               label: d.departmentName,
@@ -162,7 +172,7 @@ export default function ReportPage() {
             placeholder="All statuses"
             style={{ width: 160 }}
             value={filters.status}
-            onChange={(value) => setFilters((p) => ({ ...p, status: value }))}
+            onChange={(value) => updateFilter({ status: value })}
             options={[
               { value: 'Active', label: 'Active' },
               { value: 'Inactive', label: 'Inactive' },
@@ -172,7 +182,7 @@ export default function ReportPage() {
             format="DD MMM YYYY"
             placeholder={['Hired from', 'Hired to']}
             value={filters.range}
-            onChange={(range) => setFilters((p) => ({ ...p, range }))}
+            onChange={(range) => updateFilter({ range })}
           />
         </Space>
       </Card>
@@ -186,7 +196,7 @@ export default function ReportPage() {
         <Col xs={24} sm={8}>
           <Card>
             <Statistic
-              title="Total Monthly Payroll"
+              title="Current Monthly Payroll"
               value={formatCurrency(summary?.totalMonthlyPayroll ?? 0)}
               loading={loading}
             />
@@ -221,17 +231,26 @@ export default function ReportPage() {
           columns={columns}
           dataSource={report?.rows ?? []}
           scroll={{ x: 1000 }}
-          pagination={{ pageSize: 10, showSizeChanger: true }}
+          pagination={{
+            current: report?.page ?? pagination.page,
+            pageSize: report?.pageSize ?? pagination.pageSize,
+            total: report?.total ?? 0,
+            showSizeChanger: true,
+            showTotal: (count, range) => `${range[0]}-${range[1]} of ${count} employees`,
+          }}
+          onChange={(next) => setPagination({ page: next.current, pageSize: next.pageSize })}
           summary={(rows) => {
-            const total = rows.reduce((sum, row) => sum + Number(row.salary), 0);
+            const pageTotal = rows.reduce((sum, row) => sum + Number(row.salary), 0);
 
             return (
               <Table.Summary.Row>
                 <Table.Summary.Cell index={0} colSpan={4}>
-                  <strong>Total for {rows.length} shown</strong>
+                  {/* Explicitly the page, not the whole result - the
+                      figure for everything matched is the card above. */}
+                  <strong>Total for the {rows.length} rows on this page</strong>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={4} align="right">
-                  <strong>{formatCurrency(total)}</strong>
+                  <strong>{formatCurrency(pageTotal)}</strong>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={5} colSpan={2} />
               </Table.Summary.Row>
