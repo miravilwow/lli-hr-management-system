@@ -137,15 +137,15 @@ body {
   }
 }
 
+/* A flat deep-ink panel rather than a gradient: it frames the form
+   without competing with it. */
 .login__aside {
   display: none;
   flex-direction: column;
   justify-content: space-between;
   padding: 48px;
-  color: #eaf4f7;
-  background:
-    radial-gradient(120% 90% at 12% 8%, #12798f 0%, transparent 60%),
-    linear-gradient(150deg, #0d5b6d 0%, #0a3d4a 62%, #07303a 100%);
+  color: #E7ECF2;
+  background: #1B2836;
 }
 
 @media (min-width: 900px) {
@@ -167,7 +167,7 @@ body {
 .login__aside p {
   margin: 0;
   max-width: 42ch;
-  color: rgba(234, 244, 247, 0.78);
+  color: rgba(231, 236, 242, 0.72);
   line-height: 1.65;
 }
 

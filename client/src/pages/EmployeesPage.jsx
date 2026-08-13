@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -16,15 +16,16 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 
 import { deleteEmployee, fetchDepartments, fetchEmployees } from '../api/employees';
 import { getErrorMessage } from '../api/client';
-import { formatCurrency, formatDate } from '../utils/format';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import useAuth from '../hooks/useAuth';
 import EmployeeFormModal from '../components/EmployeeFormModal';
+import EmployeeDetailsModal from '../components/EmployeeDetailsModal';
 import PageHeader from '../components/PageHeader';
 
 const INITIAL_QUERY = {
@@ -37,16 +38,24 @@ const INITIAL_QUERY = {
   pageSize: 10,
 };
 
-// Table column key -> the sort key the API accepts.
 const SORT_KEYS = {
   employeeCode: 'employeeCode',
   name: 'lastName',
   departmentName: 'department',
   position: 'position',
-  salary: 'salary',
-  hireDate: 'hireDate',
   status: 'status',
 };
+
+// Salary and hire date are no longer columns, but the API can still sort
+// by them, so they stay available from the toolbar.
+const SORT_OPTIONS = [
+  { value: 'lastName:asc', label: 'Name (A–Z)' },
+  { value: 'lastName:desc', label: 'Name (Z–A)' },
+  { value: 'salary:desc', label: 'Salary (highest first)' },
+  { value: 'salary:asc', label: 'Salary (lowest first)' },
+  { value: 'hireDate:desc', label: 'Newest hires' },
+  { value: 'hireDate:asc', label: 'Longest serving' },
+];
 
 function StatusTag({ status }) {
   return <Tag color={status === 'Active' ? 'success' : 'default'}>{status}</Tag>;
@@ -68,8 +77,10 @@ export default function EmployeesPage() {
   const debouncedSearch = useDebouncedValue(searchInput, 400);
 
   const [query, setQuery] = useState(INITIAL_QUERY);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
 
   useEffect(() => {
     fetchDepartments()
@@ -77,8 +88,6 @@ export default function EmployeesPage() {
       .catch((err) => message.error(getErrorMessage(err, 'Could not load departments')));
   }, [message]);
 
-  // Fold the settled search term into the query, resetting to page 1 in
-  // the same update so only one request is issued.
   useEffect(() => {
     setQuery((prev) =>
       prev.search === debouncedSearch ? prev : { ...prev, search: debouncedSearch, page: 1 }
@@ -129,7 +138,9 @@ export default function EmployeesPage() {
     setFormOpen(true);
   };
 
-  const openEdit = (employee) => {
+  // Edit is reached from the details view, so opening it hands over.
+  const openEditFrom = (employee) => {
+    setViewing(null);
     setEditing(employee);
     setFormOpen(true);
   };
@@ -139,7 +150,6 @@ export default function EmployeesPage() {
       await deleteEmployee(employee.employeeId);
       message.success(`${employee.firstName} ${employee.lastName} deleted`);
 
-      // Stepping back avoids landing on an empty last page.
       if (rows.length === 1 && query.page > 1) {
         setQuery((prev) => ({ ...prev, page: prev.page - 1 }));
       } else {
@@ -157,19 +167,28 @@ export default function EmployeesPage() {
 
   const rowActions = (row) => (
     <Space size={4}>
-      <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>
-        Edit
-      </Button>
-      <Popconfirm
-        title="Delete this employee?"
-        description={`${row.firstName} ${row.lastName} will be removed from the active list. The record and its history are retained.`}
-        okText="Delete"
-        okButtonProps={{ danger: true }}
-        cancelText="Cancel"
-        onConfirm={() => handleDelete(row)}
-      >
-        <Button size="small" danger icon={<DeleteOutlined />} aria-label="Delete employee" />
-      </Popconfirm>
+      <Tooltip title="View details">
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => setViewing(row)}
+          aria-label={`View ${row.firstName} ${row.lastName}`}
+        />
+      </Tooltip>
+      {isAdmin && (
+        <Popconfirm
+          title="Delete this employee?"
+          description={`${row.firstName} ${row.lastName} will be removed from the active list. The record and its history are retained.`}
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          cancelText="Cancel"
+          onConfirm={() => handleDelete(row)}
+        >
+          <Tooltip title="Delete">
+            <Button size="small" danger icon={<DeleteOutlined />} aria-label="Delete employee" />
+          </Tooltip>
+        </Popconfirm>
+      )}
     </Space>
   );
 
@@ -178,18 +197,18 @@ export default function EmployeesPage() {
       title: 'Code',
       dataIndex: 'employeeCode',
       key: 'employeeCode',
-      width: 112,
+      width: 116,
       sorter: true,
       sortOrder: sortOrderFor('employeeCode'),
     },
     {
-      title: 'Name',
+      title: 'Employee',
       key: 'name',
       sorter: true,
       sortOrder: sortOrderFor('name'),
       render: (_, row) => (
         <Flex vertical>
-          <span style={{ fontWeight: 550 }}>
+          <span style={{ fontWeight: 600 }}>
             {row.firstName} {row.lastName}
           </span>
           <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
@@ -202,7 +221,7 @@ export default function EmployeesPage() {
       title: 'Department',
       dataIndex: 'departmentName',
       key: 'departmentName',
-      width: 180,
+      width: 200,
       sorter: true,
       sortOrder: sortOrderFor('departmentName'),
     },
@@ -210,62 +229,36 @@ export default function EmployeesPage() {
       title: 'Position',
       dataIndex: 'position',
       key: 'position',
-      width: 180,
+      width: 200,
       sorter: true,
       sortOrder: sortOrderFor('position'),
-    },
-    {
-      title: 'Salary',
-      dataIndex: 'salary',
-      key: 'salary',
-      width: 140,
-      align: 'right',
-      className: 'numeric',
-      sorter: true,
-      sortOrder: sortOrderFor('salary'),
-      render: formatCurrency,
-    },
-    {
-      title: 'Hired',
-      dataIndex: 'hireDate',
-      key: 'hireDate',
-      width: 128,
-      className: 'numeric',
-      sorter: true,
-      sortOrder: sortOrderFor('hireDate'),
-      render: formatDate,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 104,
+      width: 108,
       sorter: true,
       sortOrder: sortOrderFor('status'),
       render: (status) => <StatusTag status={status} />,
     },
-  ];
-
-  if (isAdmin) {
-    columns.push({
+    {
       title: '',
       key: 'actions',
-      width: 108,
-      fixed: 'right',
+      width: isAdmin ? 96 : 60,
+      align: 'right',
       render: (_, row) => rowActions(row),
-    });
-  }
+    },
+  ];
+
+  const hasFilters = Boolean(query.search || query.departmentId || query.status);
 
   const emptyState = (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
-      description={
-        query.search || query.departmentId || query.status
-          ? 'No employees match these filters'
-          : 'No employees yet'
-      }
+      description={hasFilters ? 'No employees match these filters' : 'No employees yet'}
     >
-      {isAdmin && !query.search && (
+      {isAdmin && !hasFilters && (
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           Add the first employee
         </Button>
@@ -273,43 +266,13 @@ export default function EmployeesPage() {
     </Empty>
   );
 
-  const filters = (
-    <Flex gap={8} wrap className="toolbar">
-      <Input
-        allowClear
-        prefix={<SearchOutlined />}
-        placeholder="Search name, email, code or position"
-        value={searchInput}
-        onChange={(e) => setSearchInput(e.target.value)}
-        className="toolbar__search"
-      />
-      <Select
-        allowClear
-        placeholder="All departments"
-        value={query.departmentId}
-        onChange={(value) => updateFilter({ departmentId: value })}
-        options={departments.map((d) => ({ value: d.departmentId, label: d.departmentName }))}
-        className="toolbar__select"
-      />
-      <Select
-        allowClear
-        placeholder="All statuses"
-        value={query.status}
-        onChange={(value) => updateFilter({ status: value })}
-        options={[
-          { value: 'Active', label: 'Active' },
-          { value: 'Inactive', label: 'Inactive' },
-        ]}
-        className="toolbar__select toolbar__select--narrow"
-      />
-    </Flex>
-  );
+  const sortValue = query.sortBy ? `${query.sortBy}:${query.sortOrder || 'asc'}` : undefined;
 
   return (
     <>
       <PageHeader
         title="Employees"
-        description="Records for everyone currently on the books, with their department, position and salary."
+        description="Everyone currently on the books. Open a record to see salary, hire date and its change history."
         extra={
           isAdmin && (
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
@@ -320,22 +283,58 @@ export default function EmployeesPage() {
       />
 
       <Card styles={{ body: { padding: isMobile ? 14 : 20 } }}>
-        {filters}
+        <Flex gap={8} wrap className="toolbar">
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="Search name, email, code or position"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="toolbar__search"
+          />
+          <Select
+            allowClear
+            placeholder="All departments"
+            value={query.departmentId}
+            onChange={(value) => updateFilter({ departmentId: value })}
+            options={departments.map((d) => ({ value: d.departmentId, label: d.departmentName }))}
+            className="toolbar__select"
+          />
+          <Select
+            allowClear
+            placeholder="All statuses"
+            value={query.status}
+            onChange={(value) => updateFilter({ status: value })}
+            options={[
+              { value: 'Active', label: 'Active' },
+              { value: 'Inactive', label: 'Inactive' },
+            ]}
+            className="toolbar__select toolbar__select--narrow"
+          />
+          <Select
+            allowClear
+            placeholder="Sort by"
+            value={sortValue}
+            onChange={(value) => {
+              const [sortBy, sortOrder] = value ? value.split(':') : [];
+              updateFilter({ sortBy, sortOrder });
+            }}
+            options={SORT_OPTIONS}
+            className="toolbar__select"
+          />
+        </Flex>
 
-        {/* A seven-column grid is unusable on a phone, so below md each
-            record becomes a card carrying the same information. */}
         {isMobile ? (
           <>
             {loading ? (
               <Skeleton active paragraph={{ rows: 6 }} style={{ marginTop: 16 }} />
             ) : (
               <List
-                style={{ marginTop: 4 }}
                 dataSource={rows}
                 locale={{ emptyText: emptyState }}
                 renderItem={(row) => (
                   <List.Item className="record">
-                    <Flex vertical gap={8} style={{ width: '100%' }}>
+                    <Flex vertical gap={9} style={{ width: '100%' }}>
                       <Flex justify="space-between" align="flex-start" gap={8}>
                         <div>
                           <div className="record__name">
@@ -348,16 +347,11 @@ export default function EmployeesPage() {
                         <StatusTag status={row.status} />
                       </Flex>
 
-                      <Flex justify="space-between" align="flex-end" gap={8} wrap>
-                        <Flex vertical>
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            {row.departmentName}
-                          </Typography.Text>
-                          <span className="record__salary numeric">
-                            {formatCurrency(row.salary)}
-                          </span>
-                        </Flex>
-                        {isAdmin && rowActions(row)}
+                      <Flex justify="space-between" align="center" gap={8}>
+                        <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+                          {row.departmentName}
+                        </Typography.Text>
+                        {rowActions(row)}
                       </Flex>
                     </Flex>
                   </List.Item>
@@ -383,7 +377,6 @@ export default function EmployeesPage() {
             loading={loading}
             columns={columns}
             dataSource={rows}
-            scroll={{ x: 900 }}
             size="middle"
             onChange={handleTableChange}
             locale={{ emptyText: emptyState }}
@@ -397,6 +390,14 @@ export default function EmployeesPage() {
           />
         )}
       </Card>
+
+      <EmployeeDetailsModal
+        open={Boolean(viewing)}
+        employee={viewing}
+        onClose={() => setViewing(null)}
+        onEdit={openEditFrom}
+        onChanged={load}
+      />
 
       <EmployeeFormModal
         open={formOpen}

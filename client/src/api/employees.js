@@ -16,6 +16,10 @@ export function updateEmployee(id, payload) {
   return api.put(`/employees/${id}`, payload).then((res) => res.data);
 }
 
+export function fetchEmployeeHistory(id) {
+  return api.get(`/employees/${id}/history`).then((res) => res.data);
+}
+
 export function deleteEmployee(id) {
   return api.delete(`/employees/${id}`);
 }

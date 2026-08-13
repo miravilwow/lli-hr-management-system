@@ -3,20 +3,52 @@ import { theme as antdTheme } from 'antd';
 /**
  * Design tokens for the whole application.
  *
- * The palette is deliberately not Ant Design's default blue. This is a
- * records system people sit in for hours, so the ground is a warm-leaning
- * neutral and the accent is a deep teal that stays legible on both
- * grounds without shouting. Semantic colours are kept separate from the
- * accent so "this is interactive" never reads as "this is a warning".
+ * The accent is a muted steel blue rather than a saturated teal: this is a
+ * records system people sit in for hours, so the colour marks what is
+ * interactive and then gets out of the way. It is used for primary
+ * buttons, links and the selected navigation item, and nowhere else.
+ * Semantic colours are kept separate, so "interactive" never reads as
+ * "warning".
  */
-const brand = {
-  primary: '#0E7490',
-  primaryHover: '#0F6785',
-  primaryActive: '#155E75',
-  success: '#15803D',
-  warning: '#B45309',
-  danger: '#B42318',
-  info: '#0E7490',
+const light = {
+  colorPrimary: '#2C5E8F',
+  colorPrimaryHover: '#35709F',
+  colorPrimaryActive: '#244E78',
+  colorSuccess: '#2E7D5B',
+  colorWarning: '#9A6B18',
+  colorError: '#B4443A',
+  colorInfo: '#2C5E8F',
+  colorLink: '#2C5E8F',
+
+  // Neutrals lean very slightly cool so they belong with the accent.
+  colorBgLayout: '#F6F7F9',
+  colorBgContainer: '#FFFFFF',
+  colorBgElevated: '#FFFFFF',
+  colorText: '#171F2A',
+  colorTextSecondary: '#46566A',
+  colorTextTertiary: '#6B7C90',
+  colorBorder: '#E1E6EC',
+  colorBorderSecondary: '#EDF1F5',
+};
+
+const dark = {
+  colorPrimary: '#6FA3D4',
+  colorPrimaryHover: '#84B4E0',
+  colorPrimaryActive: '#5B8FC0',
+  colorSuccess: '#6BBF95',
+  colorWarning: '#D2A65A',
+  colorError: '#E28A80',
+  colorInfo: '#6FA3D4',
+  colorLink: '#6FA3D4',
+
+  colorBgLayout: '#0D1219',
+  colorBgContainer: '#151D26',
+  colorBgElevated: '#1C2631',
+  colorText: '#E9EFF5',
+  colorTextSecondary: '#B2C0CE',
+  colorTextTertiary: '#7E8FA0',
+  colorBorder: '#26323E',
+  colorBorderSecondary: '#1F2A35',
 };
 
 const shared = {
@@ -24,97 +56,52 @@ const shared = {
     "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', sans-serif",
   fontSize: 14,
   borderRadius: 8,
-  borderRadiusLG: 10,
+  borderRadiusLG: 12,
   borderRadiusSM: 6,
   controlHeight: 36,
   wireframe: false,
 };
 
-const light = {
-  ...shared,
-  colorPrimary: brand.primary,
-  colorPrimaryHover: brand.primaryHover,
-  colorPrimaryActive: brand.primaryActive,
-  colorSuccess: brand.success,
-  colorWarning: brand.warning,
-  colorError: brand.danger,
-  colorInfo: brand.info,
-
-  // Neutrals carry a slight cool bias toward the accent, so greys read as
-  // chosen rather than inherited.
-  colorBgLayout: '#F4F6F8',
-  colorBgContainer: '#FFFFFF',
-  colorBgElevated: '#FFFFFF',
-  colorText: '#111B22',
-  colorTextSecondary: '#41535F',
-  colorTextTertiary: '#677885',
-  colorBorder: '#DCE3E9',
-  colorBorderSecondary: '#E8EDF1',
-
-  boxShadowTertiary:
-    '0 1px 2px rgba(17, 27, 34, 0.04), 0 4px 16px -8px rgba(17, 27, 34, 0.10)',
-};
-
-const dark = {
-  ...shared,
-  colorPrimary: '#3BA9C4',
-  colorPrimaryHover: '#55BBD3',
-  colorPrimaryActive: '#2E93AC',
-  colorSuccess: '#3DA35D',
-  colorWarning: '#D69B4A',
-  colorError: '#E3776B',
-  colorInfo: '#3BA9C4',
-
-  colorBgLayout: '#0C1117',
-  colorBgContainer: '#141C24',
-  colorBgElevated: '#1A242E',
-  colorText: '#E8EFF4',
-  colorTextSecondary: '#AEBECB',
-  colorTextTertiary: '#7C8E9C',
-  colorBorder: '#26333F',
-  colorBorderSecondary: '#1E2A35',
-
-  boxShadowTertiary: '0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.6)',
-};
-
-/** Component-level overrides, so pages do not carry ad-hoc inline styles. */
-const components = {
-  Layout: {
-    siderBg: 'transparent',
-    headerHeight: 60,
-    headerPadding: '0 24px',
-  },
-  Menu: {
-    itemHeight: 40,
-    itemMarginInline: 8,
-    itemBorderRadius: 8,
-  },
-  Table: {
-    headerBg: 'transparent',
-    headerSplitColor: 'transparent',
-    cellPaddingBlock: 14,
-    rowHoverBg: 'rgba(14, 116, 144, 0.05)',
-  },
-  Card: {
-    paddingLG: 20,
-  },
-  Statistic: {
-    titleFontSize: 13,
-    contentFontSize: 26,
-  },
-  Button: {
-    fontWeight: 500,
-    primaryShadow: 'none',
-    defaultShadow: 'none',
-  },
-};
-
-export function buildTheme(mode) {
+/**
+ * Component overrides, so pages carry no ad-hoc inline styling.
+ *
+ * headerBg matters more than it looks: Ant Design defaults Layout.Header
+ * to a dark navy, so overriding only siderBg left the light theme with a
+ * dark bar and dark contents on it - an unreadable header.
+ */
+function components(t) {
   return {
-    algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-    token: mode === 'dark' ? dark : light,
-    components,
+    Layout: {
+      headerBg: t.colorBgContainer,
+      headerHeight: 60,
+      headerPadding: '0 20px',
+      siderBg: t.colorBgContainer,
+      bodyBg: t.colorBgLayout,
+    },
+    Menu: {
+      itemHeight: 40,
+      itemMarginInline: 8,
+      itemBorderRadius: 8,
+      itemSelectedBg: t === light ? '#EAF1F8' : '#1B2A3A',
+    },
+    Table: {
+      headerBg: 'transparent',
+      headerSplitColor: 'transparent',
+      cellPaddingBlock: 14,
+    },
+    Card: { paddingLG: 20 },
+    Statistic: { titleFontSize: 13, contentFontSize: 26 },
+    Button: { fontWeight: 500, primaryShadow: 'none', defaultShadow: 'none' },
+    Modal: { titleFontSize: 17 },
   };
 }
 
-export const palette = { light, dark, brand };
+export function buildTheme(mode) {
+  const token = mode === 'dark' ? dark : light;
+
+  return {
+    algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+    token: { ...shared, ...token },
+    components: components(token),
+  };
+}
