@@ -7,6 +7,7 @@ const requireAuth = require('./middleware/auth');
 const authRoutes = require('./routes/authRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/auth', authRoutes);
 // Everything below this point requires a valid token.
 app.use('/api/departments', requireAuth, departmentRoutes);
 app.use('/api/employees', requireAuth, employeeRoutes);
+app.use('/api/reports', requireAuth, reportRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
