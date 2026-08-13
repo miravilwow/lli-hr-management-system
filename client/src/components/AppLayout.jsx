@@ -1,5 +1,7 @@
-import { Layout, Menu, Typography } from 'antd';
+import { Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+
+import { useAuth } from '../context/AuthContext';
 
 const { Header, Sider, Content } = Layout;
 
@@ -11,6 +13,12 @@ const navItems = [
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -49,6 +57,21 @@ export default function AppLayout() {
           }}
         >
           <Typography.Text strong>Employee Records Management System</Typography.Text>
+
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [{ key: 'logout', label: 'Sign out', danger: true }],
+              onClick: handleLogout,
+            }}
+          >
+            <Button type="text">
+              <Space>
+                {user?.fullName || user?.username}
+                <span aria-hidden>▾</span>
+              </Space>
+            </Button>
+          </Dropdown>
         </Header>
 
         <Content style={{ padding: 24 }}>
