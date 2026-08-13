@@ -1,5 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Card, Flex, Input, Popconfirm, Select, Space, Table, Tag, Typography } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  App,
+  Button,
+  Card,
+  Empty,
+  Flex,
+  Grid,
+  Input,
+  List,
+  Pagination,
+  Popconfirm,
+  Select,
+  Skeleton,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 
 import { deleteEmployee, fetchDepartments, fetchEmployees } from '../api/employees';
 import { getErrorMessage } from '../api/client';
@@ -7,6 +25,7 @@ import { formatCurrency, formatDate } from '../utils/format';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import useAuth from '../hooks/useAuth';
 import EmployeeFormModal from '../components/EmployeeFormModal';
+import PageHeader from '../components/PageHeader';
 
 const INITIAL_QUERY = {
   search: '',
@@ -18,8 +37,7 @@ const INITIAL_QUERY = {
   pageSize: 10,
 };
 
-// Table column key -> the sort key the API accepts. Anything not listed
-// here is not sortable server-side.
+// Table column key -> the sort key the API accepts.
 const SORT_KEYS = {
   employeeCode: 'employeeCode',
   name: 'lastName',
@@ -30,24 +48,26 @@ const SORT_KEYS = {
   status: 'status',
 };
 
+function StatusTag({ status }) {
+  return <Tag color={status === 'Active' ? 'success' : 'default'}>{status}</Tag>;
+}
+
 export default function EmployeesPage() {
   const { message } = App.useApp();
-
-  // The server enforces this regardless; hiding the controls just avoids
-  // offering a viewer actions that would come back as 403.
   const { isAdmin } = useAuth();
+
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [departments, setDepartments] = useState([]);
 
-  // What the user is typing, and the settled value the API is asked for.
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 400);
 
   const [query, setQuery] = useState(INITIAL_QUERY);
-
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -90,11 +110,8 @@ export default function EmployeesPage() {
     load();
   }, [load]);
 
-  // A filter change invalidates the current page number.
   const updateFilter = (patch) => setQuery((prev) => ({ ...prev, ...patch, page: 1 }));
 
-  // Paging and sorting arrive together from the table, so both are folded
-  // into one state update and produce a single request.
   const handleTableChange = (pagination, _filters, sorter) => {
     const sortBy = sorter?.order ? SORT_KEYS[sorter.columnKey] : undefined;
 
@@ -122,10 +139,8 @@ export default function EmployeesPage() {
       await deleteEmployee(employee.employeeId);
       message.success(`${employee.firstName} ${employee.lastName} deleted`);
 
-      // Stepping back a page avoids landing on an empty last page after
-      // deleting the only row on it.
-      const wasLastRowOnPage = rows.length === 1 && query.page > 1;
-      if (wasLastRowOnPage) {
+      // Stepping back avoids landing on an empty last page.
+      if (rows.length === 1 && query.page > 1) {
         setQuery((prev) => ({ ...prev, page: prev.page - 1 }));
       } else {
         load();
@@ -135,19 +150,35 @@ export default function EmployeesPage() {
     }
   };
 
-  // Sorting is applied in SQL, so the column only declares that it is
-  // sortable and the server decides the order.
   const sortOrderFor = (key) => {
     if (query.sortBy !== SORT_KEYS[key]) return null;
     return query.sortOrder === 'desc' ? 'descend' : 'ascend';
   };
+
+  const rowActions = (row) => (
+    <Space size={4}>
+      <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>
+        Edit
+      </Button>
+      <Popconfirm
+        title="Delete this employee?"
+        description={`${row.firstName} ${row.lastName} will be removed from the active list. The record and its history are retained.`}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        cancelText="Cancel"
+        onConfirm={() => handleDelete(row)}
+      >
+        <Button size="small" danger icon={<DeleteOutlined />} aria-label="Delete employee" />
+      </Popconfirm>
+    </Space>
+  );
 
   const columns = [
     {
       title: 'Code',
       dataIndex: 'employeeCode',
       key: 'employeeCode',
-      width: 110,
+      width: 112,
       sorter: true,
       sortOrder: sortOrderFor('employeeCode'),
     },
@@ -156,14 +187,22 @@ export default function EmployeesPage() {
       key: 'name',
       sorter: true,
       sortOrder: sortOrderFor('name'),
-      render: (_, row) => `${row.firstName} ${row.lastName}`,
+      render: (_, row) => (
+        <Flex vertical>
+          <span style={{ fontWeight: 550 }}>
+            {row.firstName} {row.lastName}
+          </span>
+          <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+            {row.email}
+          </Typography.Text>
+        </Flex>
+      ),
     },
-    { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
     {
       title: 'Department',
       dataIndex: 'departmentName',
       key: 'departmentName',
-      width: 190,
+      width: 180,
       sorter: true,
       sortOrder: sortOrderFor('departmentName'),
     },
@@ -171,7 +210,7 @@ export default function EmployeesPage() {
       title: 'Position',
       dataIndex: 'position',
       key: 'position',
-      width: 190,
+      width: 180,
       sorter: true,
       sortOrder: sortOrderFor('position'),
     },
@@ -181,15 +220,17 @@ export default function EmployeesPage() {
       key: 'salary',
       width: 140,
       align: 'right',
+      className: 'numeric',
       sorter: true,
       sortOrder: sortOrderFor('salary'),
       render: formatCurrency,
     },
     {
-      title: 'Hire Date',
+      title: 'Hired',
       dataIndex: 'hireDate',
       key: 'hireDate',
-      width: 130,
+      width: 128,
+      className: 'numeric',
       sorter: true,
       sortOrder: sortOrderFor('hireDate'),
       render: formatDate,
@@ -198,98 +239,164 @@ export default function EmployeesPage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 104,
       sorter: true,
       sortOrder: sortOrderFor('status'),
-      render: (status) => <Tag color={status === 'Active' ? 'green' : 'default'}>{status}</Tag>,
+      render: (status) => <StatusTag status={status} />,
     },
   ];
 
   if (isAdmin) {
     columns.push({
-      title: 'Actions',
+      title: '',
       key: 'actions',
-      width: 140,
+      width: 108,
       fixed: 'right',
-      render: (_, row) => (
-        <Space size="small">
-          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => openEdit(row)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete this employee?"
-            description={`${row.firstName} ${row.lastName} will be removed from the active list. The record and its history are retained.`}
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-            cancelText="Cancel"
-            onConfirm={() => handleDelete(row)}
-          >
-            <Button type="link" size="small" danger style={{ padding: 0 }}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+      render: (_, row) => rowActions(row),
     });
   }
 
-  return (
-    <Card>
-      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Employees
-        </Typography.Title>
-        {isAdmin && (
-          <Button type="primary" onClick={openCreate}>
-            Add employee
-          </Button>
-        )}
-      </Flex>
+  const emptyState = (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description={
+        query.search || query.departmentId || query.status
+          ? 'No employees match these filters'
+          : 'No employees yet'
+      }
+    >
+      {isAdmin && !query.search && (
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+          Add the first employee
+        </Button>
+      )}
+    </Empty>
+  );
 
-      <Space wrap style={{ marginBottom: 16 }}>
-        <Input
-          allowClear
-          placeholder="Search name, email, code or position"
-          style={{ width: 320 }}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
-        <Select
-          allowClear
-          placeholder="All departments"
-          style={{ width: 220 }}
-          value={query.departmentId}
-          onChange={(value) => updateFilter({ departmentId: value })}
-          options={departments.map((d) => ({ value: d.departmentId, label: d.departmentName }))}
-        />
-        <Select
-          allowClear
-          placeholder="All statuses"
-          style={{ width: 160 }}
-          value={query.status}
-          onChange={(value) => updateFilter({ status: value })}
-          options={[
-            { value: 'Active', label: 'Active' },
-            { value: 'Inactive', label: 'Inactive' },
-          ]}
-        />
-      </Space>
-
-      <Table
-        rowKey="employeeId"
-        loading={loading}
-        columns={columns}
-        dataSource={rows}
-        scroll={{ x: 1100 }}
-        onChange={handleTableChange}
-        pagination={{
-          current: query.page,
-          pageSize: query.pageSize,
-          total,
-          showSizeChanger: true,
-          showTotal: (count, range) => `${range[0]}-${range[1]} of ${count} employees`,
-        }}
+  const filters = (
+    <Flex gap={8} wrap className="toolbar">
+      <Input
+        allowClear
+        prefix={<SearchOutlined />}
+        placeholder="Search name, email, code or position"
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+        className="toolbar__search"
       />
+      <Select
+        allowClear
+        placeholder="All departments"
+        value={query.departmentId}
+        onChange={(value) => updateFilter({ departmentId: value })}
+        options={departments.map((d) => ({ value: d.departmentId, label: d.departmentName }))}
+        className="toolbar__select"
+      />
+      <Select
+        allowClear
+        placeholder="All statuses"
+        value={query.status}
+        onChange={(value) => updateFilter({ status: value })}
+        options={[
+          { value: 'Active', label: 'Active' },
+          { value: 'Inactive', label: 'Inactive' },
+        ]}
+        className="toolbar__select toolbar__select--narrow"
+      />
+    </Flex>
+  );
+
+  return (
+    <>
+      <PageHeader
+        title="Employees"
+        description="Records for everyone currently on the books, with their department, position and salary."
+        extra={
+          isAdmin && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Add employee
+            </Button>
+          )
+        }
+      />
+
+      <Card styles={{ body: { padding: isMobile ? 14 : 20 } }}>
+        {filters}
+
+        {/* A seven-column grid is unusable on a phone, so below md each
+            record becomes a card carrying the same information. */}
+        {isMobile ? (
+          <>
+            {loading ? (
+              <Skeleton active paragraph={{ rows: 6 }} style={{ marginTop: 16 }} />
+            ) : (
+              <List
+                style={{ marginTop: 4 }}
+                dataSource={rows}
+                locale={{ emptyText: emptyState }}
+                renderItem={(row) => (
+                  <List.Item className="record">
+                    <Flex vertical gap={8} style={{ width: '100%' }}>
+                      <Flex justify="space-between" align="flex-start" gap={8}>
+                        <div>
+                          <div className="record__name">
+                            {row.firstName} {row.lastName}
+                          </div>
+                          <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+                            {row.employeeCode} · {row.position}
+                          </Typography.Text>
+                        </div>
+                        <StatusTag status={row.status} />
+                      </Flex>
+
+                      <Flex justify="space-between" align="flex-end" gap={8} wrap>
+                        <Flex vertical>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {row.departmentName}
+                          </Typography.Text>
+                          <span className="record__salary numeric">
+                            {formatCurrency(row.salary)}
+                          </span>
+                        </Flex>
+                        {isAdmin && rowActions(row)}
+                      </Flex>
+                    </Flex>
+                  </List.Item>
+                )}
+              />
+            )}
+
+            {total > 0 && (
+              <Flex justify="center" style={{ marginTop: 16 }}>
+                <Pagination
+                  simple
+                  current={query.page}
+                  pageSize={query.pageSize}
+                  total={total}
+                  onChange={(page, pageSize) => setQuery((prev) => ({ ...prev, page, pageSize }))}
+                />
+              </Flex>
+            )}
+          </>
+        ) : (
+          <Table
+            rowKey="employeeId"
+            loading={loading}
+            columns={columns}
+            dataSource={rows}
+            scroll={{ x: 900 }}
+            size="middle"
+            onChange={handleTableChange}
+            locale={{ emptyText: emptyState }}
+            pagination={{
+              current: query.page,
+              pageSize: query.pageSize,
+              total,
+              showSizeChanger: true,
+              showTotal: (count, range) => `${range[0]}-${range[1]} of ${count}`,
+            }}
+          />
+        )}
+      </Card>
 
       <EmployeeFormModal
         open={formOpen}
@@ -298,6 +405,6 @@ export default function EmployeesPage() {
         onClose={() => setFormOpen(false)}
         onSaved={load}
       />
-    </Card>
+    </>
   );
 }

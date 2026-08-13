@@ -1,4 +1,6 @@
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -10,5 +12,306 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Keyboard focus must stay visible; the default outline is removed by
+   several component resets. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ant-color-primary, #0e7490);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- page header ---------- */
+
+.page-header {
+  margin-bottom: 20px;
+}
+
+.page-header__title.ant-typography {
+  margin: 0 0 2px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.page-header__description {
+  font-size: 13.5px;
+}
+
+/* ---------- application shell ---------- */
+
+.app-sider {
+  border-right: 1px solid var(--ant-color-border-secondary);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 60px;
+  padding: 0 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-brand__mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--ant-color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+.app-content {
+  padding: 24px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ---------- data density ---------- */
+
+/* Figures that sit in a column must align on the decimal. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.ant-table-thead > tr > th {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-tertiary);
+}
+
+.ant-table-wrapper .ant-table-cell {
+  transition: background-color 120ms ease;
+}
+
+/* ---------- stat cards ---------- */
+
+.stat-card .ant-statistic-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.stat-card .ant-statistic-content {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- login ---------- */
+
+.login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: var(--ant-color-bg-layout);
+}
+
+@media (min-width: 900px) {
+  .login {
+    grid-template-columns: 1.05fr 1fr;
+  }
+}
+
+.login__aside {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px;
+  color: #eaf4f7;
+  background:
+    radial-gradient(120% 90% at 12% 8%, #12798f 0%, transparent 60%),
+    linear-gradient(150deg, #0d5b6d 0%, #0a3d4a 62%, #07303a 100%);
+}
+
+@media (min-width: 900px) {
+  .login__aside {
+    display: flex;
+  }
+}
+
+.login__aside h1 {
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 650;
+  margin: 0 0 14px;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+
+.login__aside p {
+  margin: 0;
+  max-width: 42ch;
+  color: rgba(234, 244, 247, 0.78);
+  line-height: 1.65;
+}
+
+.login__points {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.login__points li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(234, 244, 247, 0.9);
+  font-size: 14px;
+}
+
+.login__panel {
+  display: grid;
+  place-items: center;
+  padding: 28px 20px;
+}
+
+.login__form {
+  width: 100%;
+  max-width: 368px;
+}
+
+.login__hint {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px dashed var(--ant-color-border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ant-color-text-tertiary);
+}
+
+.login__hint code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  color: var(--ant-color-text-secondary);
+}
+
+/* ---------- toolbar ---------- */
+
+/* Controls sit in a row on a desktop and stack to full width on a phone,
+   where a half-width select is fiddly to hit. */
+.toolbar {
+  margin-bottom: 16px;
+}
+
+.toolbar__search {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.toolbar__select {
+  flex: 0 1 200px;
+  min-width: 0;
+}
+
+.toolbar__select--narrow {
+  flex-basis: 150px;
+}
+
+.toolbar__range {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .toolbar > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+
+/* ---------- mobile record cards ---------- */
+
+.record {
+  padding: 14px 4px;
+}
+
+.record__name {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.record__salary {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- header ---------- */
+
+.app-user {
+  height: 40px;
+  padding-inline: 8px;
+}
+
+.app-user__name {
+  font-size: 13px;
+  font-weight: 550;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- responsive spacing ---------- */
+
+@media (max-width: 767px) {
+  .app-content {
+    padding: 16px 12px 32px;
+  }
+
+  .page-header__title.ant-typography {
+    font-size: 19px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  /* On a phone the primary action should span the width rather than
+     sit as a small target in the corner. */
+  .page-header > .ant-flex {
+    width: 100%;
+  }
+
+  .page-header > .ant-flex > .ant-btn {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

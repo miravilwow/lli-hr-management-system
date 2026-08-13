@@ -21,7 +21,7 @@ function PageFallback() {
   );
 }
 
-export default function App() {
+export default function App({ onToggleTheme, isDark }) {
   return (
     <AuthProvider>
       <Suspense fallback={<PageFallback />}>
@@ -29,7 +29,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
+            <Route element={<AppLayout onToggleTheme={onToggleTheme} isDark={isDark} />}>
               <Route path="/employees" element={<EmployeesPage />} />
               <Route path="/reports" element={<ReportPage />} />
             </Route>

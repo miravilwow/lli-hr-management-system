@@ -1,9 +1,16 @@
-﻿import { useState } from 'react';
-import { Alert, App, Button, Card, Form, Input, Typography } from 'antd';
+import { useState } from 'react';
+import { LockOutlined, SafetyOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Form, Input, Typography } from 'antd';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import useAuth from '../hooks/useAuth';
 import { getErrorMessage } from '../api/client';
+
+const HIGHLIGHTS = [
+  { icon: <TeamOutlined />, text: 'Employee records with a full change history' },
+  { icon: <SafetyOutlined />, text: 'Role-based access to salary information' },
+  { icon: <LockOutlined />, text: 'Every edit attributed and time-stamped' },
+];
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -33,50 +40,88 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f5f5f5',
-        padding: 16,
-      }}
-    >
-      <Card style={{ width: '100%', maxWidth: 380 }}>
-        <Typography.Title level={3} style={{ marginTop: 0, marginBottom: 4 }}>
-          Sign in
-        </Typography.Title>
-        <Typography.Paragraph type="secondary">
-          HR Employee Records Management System
-        </Typography.Paragraph>
+    <div className="login">
+      {/* Hidden below 900px: on a phone the form should be the whole screen
+          rather than something to scroll past marketing to reach. */}
+      <aside className="login__aside">
+        <div className="app-brand" style={{ padding: 0, color: '#fff' }}>
+          <span className="app-brand__mark" style={{ background: 'rgba(255,255,255,0.16)' }}>
+            HR
+          </span>
+          <span>Employee Records</span>
+        </div>
 
-        {error && (
-          <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
-        )}
+        <div>
+          <h1>Employee records, kept honest.</h1>
+          <p>
+            Every salary change records who made it, what it was before, and when — so the
+            numbers in a report can always be traced back to a decision.
+          </p>
 
-        <Form layout="vertical" onFinish={handleSubmit} requiredMark={false} autoComplete="off">
-          <Form.Item
-            name="username"
-            label="Username"
-            rules={[{ required: true, message: 'Please enter your username' }]}
-          >
-            <Input placeholder="admin" size="large" autoFocus />
-          </Form.Item>
+          <ul className="login__points">
+            {HIGHLIGHTS.map((item) => (
+              <li key={item.text}>
+                <span aria-hidden>{item.icon}</span>
+                {item.text}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          <Form.Item
-            name="password"
-            label="Password"
-            rules={[{ required: true, message: 'Please enter your password' }]}
-          >
-            <Input.Password placeholder="Enter your password" size="large" />
-          </Form.Item>
+        <Typography.Text style={{ color: 'rgba(234,244,247,0.55)', fontSize: 12.5 }}>
+          LLI Technical Assessment
+        </Typography.Text>
+      </aside>
 
-          <Button type="primary" htmlType="submit" size="large" block loading={submitting}>
+      <main className="login__panel">
+        <div className="login__form">
+          <Typography.Title level={2} style={{ marginTop: 0, marginBottom: 4, fontSize: 26 }}>
             Sign in
-          </Button>
-        </Form>
-      </Card>
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 24 }}>
+            Use your account to continue.
+          </Typography.Paragraph>
+
+          {error && (
+            <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
+          )}
+
+          <Form layout="vertical" onFinish={handleSubmit} requiredMark={false} size="large">
+            <Form.Item
+              name="username"
+              label="Username"
+              rules={[{ required: true, message: 'Please enter your username' }]}
+            >
+              <Input prefix={<UserOutlined />} placeholder="admin" autoFocus autoComplete="username" />
+            </Form.Item>
+
+            <Form.Item
+              name="password"
+              label="Password"
+              rules={[{ required: true, message: 'Please enter your password' }]}
+              style={{ marginBottom: 20 }}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
+            </Form.Item>
+
+            <Button type="primary" htmlType="submit" size="large" block loading={submitting}>
+              Sign in
+            </Button>
+          </Form>
+
+          <div className="login__hint">
+            <strong>Assessment accounts</strong>
+            <br />
+            <code>admin / admin123</code> — full access
+            <br />
+            <code>viewer / viewer123</code> — read only
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

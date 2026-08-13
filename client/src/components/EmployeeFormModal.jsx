@@ -7,6 +7,7 @@ import {
   Col,
   DatePicker,
   Form,
+  Grid,
   Input,
   InputNumber,
   Modal,
@@ -25,6 +26,9 @@ import { formatCurrency } from '../utils/format';
 export default function EmployeeFormModal({ open, employee, departments, onClose, onSaved }) {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -114,7 +118,11 @@ export default function EmployeeFormModal({ open, employee, departments, onClose
       onOk={form.submit}
       confirmLoading={submitting}
       destroyOnHidden
-      width={720}
+      // A fixed 720px dialog overflows a phone; below md it fills the
+      // screen so the form is not cramped or clipped.
+      width={isMobile ? '100%' : 720}
+      style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0, paddingBottom: 0 } : undefined}
+      styles={isMobile ? { body: { maxHeight: 'calc(100vh - 190px)', overflowY: 'auto' } } : undefined}
     >
       {conflict && (
         <Alert
