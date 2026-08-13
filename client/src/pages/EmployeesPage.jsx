@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Card, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Flex, Input, Select, Space, Table, Tag, Typography } from 'antd';
 
 import { fetchDepartments, fetchEmployees } from '../api/employees';
 import { getErrorMessage } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/format';
+import EmployeeFormModal from '../components/EmployeeFormModal';
 
 export default function EmployeesPage() {
   const { message } = App.useApp();
@@ -19,6 +20,7 @@ export default function EmployeesPage() {
     status: undefined,
   });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10 });
+  const [formOpen, setFormOpen] = useState(false);
 
   useEffect(() => {
     fetchDepartments()
@@ -90,9 +92,14 @@ export default function EmployeesPage() {
 
   return (
     <Card>
-      <Typography.Title level={4} style={{ marginTop: 0 }}>
-        Employees
-      </Typography.Title>
+      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          Employees
+        </Typography.Title>
+        <Button type="primary" onClick={() => setFormOpen(true)}>
+          Add employee
+        </Button>
+      </Flex>
 
       <Space wrap style={{ marginBottom: 16 }}>
         <Input.Search
@@ -136,6 +143,13 @@ export default function EmployeesPage() {
           showTotal: (count, range) => `${range[0]}-${range[1]} of ${count} employees`,
           onChange: (page, pageSize) => setPagination({ page, pageSize }),
         }}
+      />
+
+      <EmployeeFormModal
+        open={formOpen}
+        departments={departments}
+        onClose={() => setFormOpen(false)}
+        onSaved={load}
       />
     </Card>
   );
