@@ -10,5 +10,6 @@ router.get('/', employeeController.list);
 router.get('/:id', idParamRule, validate, employeeController.getById);
 router.post('/', employeeRules, validate, employeeController.create);
 router.put('/:id', idParamRule, employeeRules, validate, employeeController.update);
+router.delete('/:id', idParamRule, validate, employeeController.remove);
 
 module.exports = router;

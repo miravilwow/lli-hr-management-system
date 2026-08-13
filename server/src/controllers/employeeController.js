@@ -45,4 +45,14 @@ async function update(req, res) {
   res.json(employee);
 }
 
-module.exports = { list, getById, create, update };
+async function remove(req, res) {
+  const deleted = await employeeService.deleteEmployee(Number(req.params.id));
+
+  if (!deleted) {
+    throw new ApiError(404, 'Employee not found');
+  }
+
+  res.status(204).send();
+}
+
+module.exports = { list, getById, create, update, remove };

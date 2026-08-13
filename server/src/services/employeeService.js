@@ -188,4 +188,24 @@ async function updateEmployee(employeeId, employee) {
   }
 }
 
-module.exports = { listEmployees, getEmployeeById, createEmployee, updateEmployee };
+/** Returns false when there was no matching row to delete. */
+async function deleteEmployee(employeeId) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('employeeId', sql.Int, employeeId)
+    .query(`
+      DELETE FROM dbo.Employees WHERE EmployeeId = @employeeId;
+      SELECT @@ROWCOUNT AS affected;
+    `);
+
+  return result.recordset[0].affected > 0;
+}
+
+module.exports = {
+  listEmployees,
+  getEmployeeById,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+};
