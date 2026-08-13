@@ -37,22 +37,40 @@ async function getById(req, res) {
 }
 
 async function create(req, res) {
-  const employee = await employeeService.createEmployee(req.body);
+  const employee = await employeeService.createEmployee(req.body, req.user.userId);
   res.status(201).json(employee);
 }
 
 async function update(req, res) {
-  const employee = await employeeService.updateEmployee(Number(req.params.id), req.body);
+  const { rowVersion, ...employee } = req.body;
 
-  if (!employee) {
+  const result = await employeeService.updateEmployee(
+    Number(req.params.id),
+    employee,
+    req.user.userId,
+    rowVersion
+  );
+
+  if (result.status === 'notFound') {
     throw new ApiError(404, 'Employee not found');
   }
 
-  res.json(employee);
+  // Someone else saved this record between the client loading it and
+  // submitting. Returning the current row lets the UI show what changed
+  // instead of just refusing.
+  if (result.status === 'conflict') {
+    throw new ApiError(
+      409,
+      'This record was changed by someone else while you were editing it. Reload to see the current values.',
+      { current: result.current }
+    );
+  }
+
+  res.json(result.employee);
 }
 
 async function remove(req, res) {
-  const deleted = await employeeService.deleteEmployee(Number(req.params.id));
+  const deleted = await employeeService.deleteEmployee(Number(req.params.id), req.user.userId);
 
   if (!deleted) {
     throw new ApiError(404, 'Employee not found');
@@ -61,4 +79,17 @@ async function remove(req, res) {
   res.status(204).send();
 }
 
-module.exports = { list, getById, create, update, remove };
+async function history(req, res) {
+  const employeeId = Number(req.params.id);
+  const entries = await employeeService.getEmployeeHistory(employeeId);
+
+  // An employee with no history at all is one that never existed; a real
+  // record always has at least its Create entry.
+  if (!entries.length) {
+    throw new ApiError(404, 'Employee not found');
+  }
+
+  res.json(entries);
+}
+
+module.exports = { list, getById, create, update, remove, history };

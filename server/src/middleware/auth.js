@@ -16,7 +16,15 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { userId: payload.sub, username: payload.username };
+
+    req.user = {
+      userId: payload.sub,
+      username: payload.username,
+      // Tokens issued before roles existed carry no role. Default to the
+      // lower privilege rather than silently granting write access.
+      role: payload.role || 'Viewer',
+    };
+
     return next();
   } catch (err) {
     const message = err.name === 'TokenExpiredError'

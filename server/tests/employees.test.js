@@ -195,6 +195,10 @@ describe('POST /api/v1/employees', () => {
 });
 
 describe('PUT /api/v1/employees/:id', () => {
+  // Any 8-byte value, for cases where the record is not meant to be found
+  // anyway and the token only has to be well-formed.
+  const ANY_ROW_VERSION = Buffer.alloc(8).toString('base64');
+
   test('updates a record and returns the new values', async () => {
     const created = await api('post', '/api/v1/employees', buildEmployee());
 
@@ -204,6 +208,7 @@ describe('PUT /api/v1/employees/:id', () => {
       position: 'Promoted Engineer',
       salary: 99000,
       status: 'Inactive',
+      rowVersion: created.body.rowVersion,
     });
 
     const res = await api('put', `/api/v1/employees/${created.body.employeeId}`, updated);
@@ -220,9 +225,28 @@ describe('PUT /api/v1/employees/:id', () => {
   // Regression: an UPDATE affecting zero rows succeeds in SQL, so without
   // the @@ROWCOUNT check this returned 200 for a record that never existed.
   test('returns 404 for an id that does not exist', async () => {
-    const res = await api('put', '/api/v1/employees/99999999', buildEmployee());
+    const res = await api(
+      'put',
+      '/api/v1/employees/99999999',
+      buildEmployee({ rowVersion: ANY_ROW_VERSION })
+    );
 
     assert.equal(res.status, 404);
+  });
+
+  test('rejects an update with no concurrency token', async () => {
+    const created = await api('post', '/api/v1/employees', buildEmployee());
+
+    const res = await api(
+      'put',
+      `/api/v1/employees/${created.body.employeeId}`,
+      buildEmployee({ employeeCode: created.body.employeeCode, email: created.body.email })
+    );
+
+    assert.equal(res.status, 400);
+    assert.match(res.body.message, /rowVersion/i);
+
+    await cleanup(created.body.employeeId);
   });
 
   test('rejects taking an email already used by another record with 409', async () => {
@@ -232,7 +256,11 @@ describe('PUT /api/v1/employees/:id', () => {
     const res = await api(
       'put',
       `/api/v1/employees/${b.body.employeeId}`,
-      buildEmployee({ employeeCode: b.body.employeeCode, email: a.body.email })
+      buildEmployee({
+        employeeCode: b.body.employeeCode,
+        email: a.body.email,
+        rowVersion: b.body.rowVersion,
+      })
     );
 
     assert.equal(res.status, 409);
@@ -247,7 +275,7 @@ describe('PUT /api/v1/employees/:id', () => {
     const res = await api(
       'put',
       `/api/v1/employees/${created.body.employeeId}`,
-      buildEmployee({ salary: -100 })
+      buildEmployee({ salary: -100, rowVersion: created.body.rowVersion })
     );
 
     assert.equal(res.status, 400);

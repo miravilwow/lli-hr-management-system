@@ -10,7 +10,7 @@ async function findUserByUsername(username) {
     .request()
     .input('username', sql.NVarChar(50), username)
     .query(`
-      SELECT UserId, Username, PasswordHash, FullName
+      SELECT UserId, Username, PasswordHash, FullName, [Role]
       FROM dbo.Users
       WHERE Username = @username
     `);
@@ -31,7 +31,7 @@ async function login(username, password) {
   if (!passwordMatches) throw invalid;
 
   const token = jwt.sign(
-    { sub: user.UserId, username: user.Username },
+    { sub: user.UserId, username: user.Username, role: user.Role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
   );
@@ -42,6 +42,7 @@ async function login(username, password) {
       userId: user.UserId,
       username: user.Username,
       fullName: user.FullName,
+      role: user.Role,
     },
   };
 }
@@ -52,7 +53,7 @@ async function getUserById(userId) {
     .request()
     .input('userId', sql.Int, userId)
     .query(`
-      SELECT UserId, Username, FullName
+      SELECT UserId, Username, FullName, [Role]
       FROM dbo.Users
       WHERE UserId = @userId
     `);
@@ -60,7 +61,12 @@ async function getUserById(userId) {
   const user = result.recordset[0];
   if (!user) return null;
 
-  return { userId: user.UserId, username: user.Username, fullName: user.FullName };
+  return {
+    userId: user.UserId,
+    username: user.Username,
+    fullName: user.FullName,
+    role: user.Role,
+  };
 }
 
 module.exports = { login, getUserById };
