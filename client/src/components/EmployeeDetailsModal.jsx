@@ -1,23 +1,64 @@
 import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import { EditOutlined } from '@ant-design/icons';
-import {
-  App,
-  Button,
-  Descriptions,
-  Divider,
-  Flex,
-  Grid,
-  Modal,
-  Popconfirm,
-  Skeleton,
-  Tag,
-  Typography,
-} from 'antd';
+import { App, Button, Flex, Grid, Modal, Popconfirm, Skeleton, Tag, Typography } from 'antd';
 
 import { fetchEmployeeHistory, updateEmployee } from '../api/employees';
 import { getErrorMessage } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/format';
 import useAuth from '../hooks/useAuth';
+
+/** A labelled value. Every field in the dialog is one of these, so they align. */
+function Field({ label, children, className = '' }) {
+  return (
+    <div className={`detail__field ${className}`}>
+      <span className="detail__label">{label}</span>
+      <span className="detail__value">{children}</span>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="detail__section">
+      <div className="detail__section-title">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function initialsOf(employee) {
+  return `${employee.firstName?.[0] ?? ''}${employee.lastName?.[0] ?? ''}`.toUpperCase();
+}
+
+/** "6 years, 5 months" — reads better than making the reader subtract dates. */
+function lengthOfService(hireDate) {
+  const start = dayjs(hireDate);
+  if (!start.isValid()) return '—';
+
+  const now = dayjs();
+  const years = now.diff(start, 'year');
+  const months = now.diff(start.add(years, 'year'), 'month');
+
+  const parts = [];
+  if (years) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+  if (months) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+
+  return parts.length ? parts.join(', ') : 'Less than a month';
+}
+
+function describeChange(entry) {
+  if (entry.action === 'Create') return 'Record created';
+  if (entry.action === 'Delete') return 'Record deleted';
+
+  return (
+    <>
+      <strong>{entry.fieldName}</strong>{' '}
+      <span className="detail__change">{entry.oldValue || '—'}</span> →{' '}
+      <span className="detail__change">{entry.newValue || '—'}</span>
+    </>
+  );
+}
 
 /**
  * Read-only view of one employee.
@@ -53,8 +94,8 @@ export default function EmployeeDetailsModal({ open, employee, onClose, onEdit, 
 
   /**
    * Status is deliberately not a field on the edit form, so it is changed
-   * here as an explicit action. The rest of the record is sent unchanged
-   * alongside it, since PUT replaces the whole resource.
+   * here as an explicit action. The rest of the record goes with it, since
+   * PUT replaces the whole resource.
    */
   const toggleStatus = async () => {
     setSaving(true);
@@ -83,33 +124,41 @@ export default function EmployeeDetailsModal({ open, employee, onClose, onEdit, 
     }
   };
 
-  const lastChange = history?.find((entry) => entry.action === 'Update');
-  const created = history?.find((entry) => entry.action === 'Create');
-
   return (
     <Modal
       open={open}
       onCancel={onClose}
-      width={isMobile ? '100%' : 620}
-      style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
+      width={isMobile ? '100%' : 760}
+      style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0, paddingBottom: 0 } : { top: 40 }}
+      styles={{
+        body: isMobile ? { maxHeight: 'calc(100vh - 190px)', overflowY: 'auto' } : undefined,
+      }}
       title={
-        <Flex align="center" gap={10} wrap>
-          <span>
-            {employee.firstName} {employee.lastName}
-          </span>
+        <Flex align="center" justify="space-between" gap={12} wrap style={{ paddingRight: 24 }}>
+          <div className="detail__identity">
+            <span className="detail__initials">{initialsOf(employee)}</span>
+            <div style={{ minWidth: 0 }}>
+              <div className="detail__name">
+                {employee.firstName} {employee.lastName}
+              </div>
+              <div className="detail__meta">
+                {employee.employeeCode} · {employee.position}
+              </div>
+            </div>
+          </div>
           <Tag color={isActive ? 'success' : 'default'} style={{ marginInlineEnd: 0 }}>
             {employee.status}
           </Tag>
         </Flex>
       }
       footer={
-        <Flex justify="space-between" gap={8} wrap>
+        <Flex justify="space-between" align="center" gap={8} wrap>
           {isAdmin ? (
             <Popconfirm
               title={isActive ? 'Mark as inactive?' : 'Mark as active?'}
               description={
                 isActive
-                  ? 'They will be excluded from active headcount but the record is kept.'
+                  ? 'They will be excluded from active headcount. The record is kept.'
                   : 'They will count towards active headcount again.'
               }
               okText="Confirm"
@@ -127,71 +176,68 @@ export default function EmployeeDetailsModal({ open, employee, onClose, onEdit, 
             <Button onClick={onClose}>Close</Button>
             {isAdmin && (
               <Button type="primary" icon={<EditOutlined />} onClick={() => onEdit(employee)}>
-                Edit
+                Edit details
               </Button>
             )}
           </Flex>
         </Flex>
       }
     >
-      <Descriptions
-        column={isMobile ? 1 : 2}
-        size="small"
-        colon={false}
-        labelStyle={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase' }}
-        items={[
-          { key: 'code', label: 'Employee code', children: employee.employeeCode },
-          { key: 'dept', label: 'Department', children: employee.departmentName },
-          { key: 'position', label: 'Position', children: employee.position },
-          { key: 'hired', label: 'Hire date', children: formatDate(employee.hireDate) },
-          {
-            key: 'email',
-            label: 'Email',
-            span: isMobile ? 1 : 2,
-            children: <Typography.Text copyable>{employee.email}</Typography.Text>,
-          },
-        ]}
-      />
+      {/* The figure people open this dialog for, given the space to be read
+          at a glance rather than buried in a row of equal-weight fields. */}
+      <Field label="Monthly salary">
+        <span className="detail__figure">{formatCurrency(employee.salary)}</span>
+      </Field>
 
-      <Divider style={{ margin: '18px 0 14px' }} />
-
-      <Typography.Text type="secondary" style={{ fontSize: 11, letterSpacing: '.06em' }}>
-        MONTHLY SALARY
-      </Typography.Text>
-      <div className="numeric" style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>
-        {formatCurrency(employee.salary)}
-      </div>
-
-      <Divider style={{ margin: '18px 0 14px' }} />
-
-      <Typography.Text type="secondary" style={{ fontSize: 11, letterSpacing: '.06em' }}>
-        RECORD HISTORY
-      </Typography.Text>
-
-      {history === null ? (
-        <Skeleton active paragraph={{ rows: 2 }} title={false} style={{ marginTop: 10 }} />
-      ) : (
-        <div style={{ marginTop: 8, fontSize: 13.5 }}>
-          {lastChange ? (
-            <div>
-              Last change: <strong>{lastChange.fieldName}</strong> {lastChange.oldValue} →{' '}
-              <strong>{lastChange.newValue}</strong>
-              <Typography.Text type="secondary">
-                {' '}
-                · {lastChange.changedBy} · {formatDate(lastChange.changedAt)}
-              </Typography.Text>
-            </div>
-          ) : (
-            <Typography.Text type="secondary">No changes recorded yet.</Typography.Text>
-          )}
-
-          {created && (
-            <Typography.Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-              Created by {created.changedBy} on {formatDate(created.changedAt)}
-            </Typography.Text>
-          )}
+      <Section title="Employment">
+        <div className="detail__grid">
+          <Field label="Department">{employee.departmentName}</Field>
+          <Field label="Position">{employee.position}</Field>
+          <Field label="Hire date">{formatDate(employee.hireDate)}</Field>
+          <Field label="Length of service">{lengthOfService(employee.hireDate)}</Field>
         </div>
-      )}
+      </Section>
+
+      <Section title="Contact">
+        <div className="detail__grid detail__grid--single">
+          <Field label="Email address">
+            <Typography.Text copyable style={{ fontSize: 14.5, fontWeight: 500 }}>
+              {employee.email}
+            </Typography.Text>
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Record history">
+        {history === null ? (
+          <Skeleton active paragraph={{ rows: 2 }} title={false} />
+        ) : history.length === 0 ? (
+          <Typography.Text type="secondary" style={{ fontSize: 13.5 }}>
+            No changes recorded. This record predates the audit trail.
+          </Typography.Text>
+        ) : (
+          <div>
+            {history.slice(0, 6).map((entry) => (
+              <div className="detail__history-item" key={entry.auditId}>
+                <span className="detail__history-dot" />
+                <div className="detail__history-text">
+                  <div>{describeChange(entry)}</div>
+                  <div className="detail__history-when">
+                    {entry.changedByName || entry.changedBy} · {formatDate(entry.changedAt)}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {history.length > 6 && (
+              <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+                and {history.length - 6} earlier change
+                {history.length - 6 === 1 ? '' : 's'}
+              </Typography.Text>
+            )}
+          </div>
+        )}
+      </Section>
     </Modal>
   );
 }
