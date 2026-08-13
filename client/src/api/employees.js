@@ -12,6 +12,10 @@ export function createEmployee(payload) {
   return api.post('/employees', payload).then((res) => res.data);
 }
 
+export function updateEmployee(id, payload) {
+  return api.put(`/employees/${id}`, payload).then((res) => res.data);
+}
+
 export function fetchDepartments() {
   return api.get('/departments').then((res) => res.data);
 }

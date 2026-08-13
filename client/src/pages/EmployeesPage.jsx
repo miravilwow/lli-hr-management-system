@@ -21,6 +21,17 @@ export default function EmployeesPage() {
   });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10 });
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (employee) => {
+    setEditing(employee);
+    setFormOpen(true);
+  };
 
   useEffect(() => {
     fetchDepartments()
@@ -88,6 +99,17 @@ export default function EmployeesPage() {
         <Tag color={status === 'Active' ? 'green' : 'default'}>{status}</Tag>
       ),
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 90,
+      fixed: 'right',
+      render: (_, row) => (
+        <Button type="link" size="small" style={{ padding: 0 }} onClick={() => openEdit(row)}>
+          Edit
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -96,7 +118,7 @@ export default function EmployeesPage() {
         <Typography.Title level={4} style={{ margin: 0 }}>
           Employees
         </Typography.Title>
-        <Button type="primary" onClick={() => setFormOpen(true)}>
+        <Button type="primary" onClick={openCreate}>
           Add employee
         </Button>
       </Flex>
@@ -147,6 +169,7 @@ export default function EmployeesPage() {
 
       <EmployeeFormModal
         open={formOpen}
+        employee={editing}
         departments={departments}
         onClose={() => setFormOpen(false)}
         onSaved={load}

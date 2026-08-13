@@ -1,30 +1,52 @@
 import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import { App, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd';
 
-import { createEmployee } from '../api/employees';
+import { createEmployee, updateEmployee } from '../api/employees';
 import { getErrorMessage } from '../api/client';
 
-export default function EmployeeFormModal({ open, departments, onClose, onSaved }) {
+/**
+ * Handles both adding and editing. Passing an `employee` switches the
+ * dialog into edit mode; omitting it creates a new record.
+ */
+export default function EmployeeFormModal({ open, employee, departments, onClose, onSaved }) {
   const [form] = Form.useForm();
   const { message } = App.useApp();
   const [submitting, setSubmitting] = useState(false);
 
-  // Clear any previous input each time the dialog is reopened.
+  const isEdit = Boolean(employee);
+
+  // Load the selected record into the form, or clear it for a new one.
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    if (employee) {
+      form.setFieldsValue({
+        ...employee,
+        salary: Number(employee.salary),
+        hireDate: dayjs(employee.hireDate),
+      });
+    } else {
       form.resetFields();
     }
-  }, [open, form]);
+  }, [open, employee, form]);
 
   const handleSubmit = async (values) => {
     setSubmitting(true);
 
+    const payload = {
+      ...values,
+      hireDate: values.hireDate.format('YYYY-MM-DD'),
+    };
+
     try {
-      await createEmployee({
-        ...values,
-        hireDate: values.hireDate.format('YYYY-MM-DD'),
-      });
-      message.success('Employee created');
+      if (isEdit) {
+        await updateEmployee(employee.employeeId, payload);
+        message.success('Employee updated');
+      } else {
+        await createEmployee(payload);
+        message.success('Employee created');
+      }
       onSaved();
       onClose();
     } catch (err) {
@@ -37,7 +59,7 @@ export default function EmployeeFormModal({ open, departments, onClose, onSaved 
   return (
     <Modal
       open={open}
-      title="Add employee"
+      title={isEdit ? `Edit ${employee.firstName} ${employee.lastName}` : 'Add employee'}
       okText="Save"
       onCancel={onClose}
       onOk={form.submit}
