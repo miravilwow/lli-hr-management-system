@@ -6,9 +6,6 @@ import AppLayout from './components/AppLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthProvider from './context/AuthProvider';
 
-// Split per route. The login screen is the only thing an unauthenticated
-// visitor can reach, and it should not carry the cost of downloading the
-// employee table and the report alongside it.
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const EmployeesPage = lazy(() => import('./pages/EmployeesPage'));
 const ReportPage = lazy(() => import('./pages/ReportPage'));

@@ -11,12 +11,10 @@ const requireRole = require('../middleware/requireRole');
 
 const router = express.Router();
 
-// Any signed-in account may read.
 router.get('/', listQueryRules, validate, employeeController.list);
 router.get('/:id', idParamRule, validate, employeeController.getById);
 router.get('/:id/history', idParamRule, validate, employeeController.history);
 
-// Writing employee records is an Admin action.
 const adminOnly = requireRole('Admin');
 
 router.post('/', adminOnly, employeeRules, validate, employeeController.create);

@@ -1,15 +1,6 @@
-/**
- * Validates configuration once, at startup.
- *
- * Without this a missing JWT_SECRET is not noticed until the first login
- * attempt, where jsonwebtoken throws and the client sees an opaque
- * "Internal server error" with nothing pointing at the real cause.
- */
 
 const REQUIRED = ['DB_SERVER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'JWT_SECRET'];
 
-// Shipped in .env.example purely as placeholders; leaving them in place
-// means the deployment was never actually configured.
 const PLACEHOLDERS = new Set([
   'your_sa_password_here',
   'PASTE_YOUR_SA_PASSWORD_HERE',
@@ -41,7 +32,6 @@ function validateEnv(env = process.env) {
   return problems;
 }
 
-/** Prints every problem and exits, rather than failing later at request time. */
 function assertEnv(env = process.env) {
   const problems = validateEnv(env);
 

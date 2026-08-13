@@ -101,8 +101,6 @@ export default function ReportPage() {
     { key: 'headcount', title: 'Headcount', value: summary?.headcount ?? 0, raw: true },
     {
       key: 'payroll',
-      // Salary is a single current value with no history, so this is
-      // payroll as it stands today - not a figure for any past month.
       title: 'Current Monthly Payroll',
       value: formatCurrency(summary?.totalMonthlyPayroll ?? 0),
     },
@@ -306,8 +304,6 @@ export default function ReportPage() {
                 return (
                   <Table.Summary.Row>
                     <Table.Summary.Cell index={0} colSpan={4}>
-                      {/* Explicitly the page, not the whole result - the
-                          figure for everything matched is the card above. */}
                       <strong>Total for the {rows.length} rows on this page</strong>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={4} align="right" className="numeric">

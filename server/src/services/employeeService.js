@@ -1,8 +1,6 @@
 const { sql, getPool } = require('../config/db');
 const { ApiError } = require('../middleware/errorHandler');
 
-// SQL Server error numbers we can turn into a meaningful client response
-// instead of letting them surface as a generic 500.
 const UNIQUE_VIOLATION = [2601, 2627];
 const FOREIGN_KEY_VIOLATION = 547;
 
@@ -19,8 +17,6 @@ function translateSqlError(err) {
   return err;
 }
 
-// Columns the client is allowed to sort by, mapped to real SQL. Whitelisting
-// keeps the ORDER BY clause free of any user-supplied text.
 const SORTABLE = {
   employeeCode: 'e.EmployeeCode',
   lastName: 'e.LastName',
@@ -47,13 +43,8 @@ const SELECT_COLUMNS = `
     e.UpdatedAt     AS updatedAt,
     e.[RowVersion]  AS rowVersion`;
 
-// Soft-deleted employees are invisible to every read path.
 const LIVE_ONLY = 'e.DeletedAt IS NULL';
 
-/**
- * ROWVERSION arrives from the driver as a Buffer. It travels to the
- * client as base64 and has to come back as a Buffer to be compared.
- */
 function encodeRowVersion(row) {
   if (row && Buffer.isBuffer(row.rowVersion)) {
     return { ...row, rowVersion: row.rowVersion.toString('base64') };
@@ -71,10 +62,6 @@ function decodeRowVersion(value) {
   }
 }
 
-/**
- * Paged, filtered employee list.
- * Every filter is optional and bound as a parameter.
- */
 async function listEmployees({ search, departmentId, status, sortBy, sortOrder, page = 1, pageSize = 10 }) {
   const pool = await getPool();
   const request = pool.request();
@@ -147,7 +134,6 @@ async function getEmployeeById(employeeId, runner) {
   return encodeRowVersion(result.recordset[0]) || null;
 }
 
-/** Binds the shared employee columns onto a request object. */
 function bindEmployeeInputs(request, employee) {
   return request
     .input('employeeCode', sql.NVarChar(20), employee.employeeCode)
@@ -161,11 +147,6 @@ function bindEmployeeInputs(request, employee) {
     .input('status', sql.NVarChar(20), employee.status || 'Active');
 }
 
-/* ------------------------------------------------------------------ */
-/* Audit trail                                                         */
-/* ------------------------------------------------------------------ */
-
-// Fields whose changes are worth recording individually.
 const AUDITED_FIELDS = [
   'employeeCode',
   'firstName',
@@ -184,7 +165,6 @@ function normaliseForComparison(value) {
   return String(value);
 }
 
-/** Returns one entry per field that actually changed. */
 function diffEmployee(before, after) {
   const changes = [];
 
@@ -201,7 +181,6 @@ function diffEmployee(before, after) {
 }
 
 async function writeAudit(runner, { employeeId, action, actorId, changes = [] }) {
-  // Create and delete are recorded as a single row with no field name.
   const entries = changes.length
     ? changes
     : [{ field: null, oldValue: null, newValue: null }];
@@ -223,10 +202,6 @@ async function writeAudit(runner, { employeeId, action, actorId, changes = [] })
       `);
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Writes                                                              */
-/* ------------------------------------------------------------------ */
 
 async function createEmployee(employee, actorId) {
   const pool = await getPool();
@@ -262,13 +237,6 @@ async function createEmployee(employee, actorId) {
   }
 }
 
-/**
- * Update guarded by the row's concurrency token.
- *
- * Returns { status: 'updated' | 'notFound' | 'conflict' } so the
- * controller can map each outcome to the right HTTP response without
- * knowing anything about SQL.
- */
 async function updateEmployee(employeeId, employee, actorId, rowVersion) {
   const expected = decodeRowVersion(rowVersion);
 
@@ -313,8 +281,6 @@ async function updateEmployee(employeeId, employee, actorId, rowVersion) {
       SELECT @@ROWCOUNT AS affected;
     `);
 
-    // The row exists but the token did not match, so someone else saved
-    // between this client reading the record and submitting it.
     if (result.recordset[0].affected === 0) {
       await transaction.rollback();
       return { status: 'conflict', current: before };
@@ -335,11 +301,6 @@ async function updateEmployee(employeeId, employee, actorId, rowVersion) {
   }
 }
 
-/**
- * Soft delete. The row is retained - employment records normally carry a
- * retention obligation, and a hard delete would also destroy the audit
- * trail's subject.
- */
 async function deleteEmployee(employeeId, actorId) {
   const pool = await getPool();
   const transaction = new sql.Transaction(pool);
@@ -374,12 +335,6 @@ async function deleteEmployee(employeeId, actorId) {
   }
 }
 
-/**
- * Existence check that deliberately ignores DeletedAt.
- *
- * Reads of the record itself exclude soft-deleted rows, but the history
- * has to outlive the deletion - that is what retaining the row is for.
- */
 async function employeeExists(employeeId) {
   const pool = await getPool();
 
@@ -391,7 +346,6 @@ async function employeeExists(employeeId) {
   return result.recordset.length > 0;
 }
 
-/** Full change history for one employee, newest first. */
 async function getEmployeeHistory(employeeId) {
   const pool = await getPool();
 

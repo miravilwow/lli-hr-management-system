@@ -1,7 +1,6 @@
 const employeeService = require('../services/employeeService');
 const { ApiError } = require('../middleware/errorHandler');
 
-/** undefined for an absent value, a number otherwise. */
 function toNumber(value) {
   return value === undefined || value === '' ? undefined : Number(value);
 }
@@ -9,10 +8,6 @@ function toNumber(value) {
 async function list(req, res) {
   const { search, departmentId, status, sortBy, sortOrder, page, pageSize } = req.query;
 
-  // listQueryRules has already rejected anything out of range, but its
-  // toInt() sanitisers cannot write back to req.query: Express 5 exposes
-  // it as a getter, so the values arrive here as strings. Coerce them
-  // explicitly, otherwise the paging numbers echo back as strings.
   const result = await employeeService.listEmployees({
     search: search || undefined,
     departmentId: toNumber(departmentId),
@@ -55,9 +50,6 @@ async function update(req, res) {
     throw new ApiError(404, 'Employee not found');
   }
 
-  // Someone else saved this record between the client loading it and
-  // submitting. Returning the current row lets the UI show what changed
-  // instead of just refusing.
   if (result.status === 'conflict') {
     throw new ApiError(
       409,
@@ -82,10 +74,6 @@ async function remove(req, res) {
 async function history(req, res) {
   const employeeId = Number(req.params.id);
 
-  // Existence has to be checked against the employee itself. Inferring it
-  // from "has no audit rows" was wrong: every seeded employee predates the
-  // audit trail, so a legitimate record with an empty history was being
-  // reported as missing.
   if (!(await employeeService.employeeExists(employeeId))) {
     throw new ApiError(404, 'Employee not found');
   }

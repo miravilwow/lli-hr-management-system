@@ -1,15 +1,5 @@
 import { theme as antdTheme } from 'antd';
 
-/**
- * Design tokens for the whole application.
- *
- * The accent is a muted steel blue rather than a saturated teal: this is a
- * records system people sit in for hours, so the colour marks what is
- * interactive and then gets out of the way. It is used for primary
- * buttons, links and the selected navigation item, and nowhere else.
- * Semantic colours are kept separate, so "interactive" never reads as
- * "warning".
- */
 const light = {
   colorPrimary: '#2C5E8F',
   colorPrimaryHover: '#35709F',
@@ -20,7 +10,6 @@ const light = {
   colorInfo: '#2C5E8F',
   colorLink: '#2C5E8F',
 
-  // Neutrals lean very slightly cool so they belong with the accent.
   colorBgLayout: '#F6F7F9',
   colorBgContainer: '#FFFFFF',
   colorBgElevated: '#FFFFFF',
@@ -62,13 +51,6 @@ const shared = {
   wireframe: false,
 };
 
-/**
- * Component overrides, so pages carry no ad-hoc inline styling.
- *
- * headerBg matters more than it looks: Ant Design defaults Layout.Header
- * to a dark navy, so overriding only siderBg left the light theme with a
- * dark bar and dark contents on it - an unreadable header.
- */
 function components(t) {
   return {
     Layout: {

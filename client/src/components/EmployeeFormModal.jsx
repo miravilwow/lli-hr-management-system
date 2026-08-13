@@ -37,14 +37,6 @@ function SectionLabel({ children }) {
   );
 }
 
-/**
- * Handles both adding and editing. Passing an `employee` switches the
- * dialog into edit mode; omitting it creates a new record.
- *
- * Every field sits in the same two-column grid so the rows line up. Status
- * is deliberately absent: it is shown and changed from the details view,
- * which keeps this form to the facts about the person and their job.
- */
 export default function EmployeeFormModal({ open, employee, departments, onClose, onSaved }) {
   const [form] = Form.useForm();
   const { message } = App.useApp();
@@ -82,8 +74,6 @@ export default function EmployeeFormModal({ open, employee, departments, onClose
     const payload = {
       ...values,
       hireDate: values.hireDate.format('YYYY-MM-DD'),
-      // PUT replaces the whole resource, so the current status is carried
-      // through. Without this an edit would silently reactivate someone.
       status: employee?.status ?? 'Active',
     };
 

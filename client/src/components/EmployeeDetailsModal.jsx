@@ -8,7 +8,6 @@ import { getErrorMessage } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/format';
 import useAuth from '../hooks/useAuth';
 
-/** A labelled value. Every field in the dialog is one of these, so they align. */
 function Field({ label, children, className = '' }) {
   return (
     <div className={`detail__field ${className}`}>
@@ -31,7 +30,6 @@ function initialsOf(employee) {
   return `${employee.firstName?.[0] ?? ''}${employee.lastName?.[0] ?? ''}`.toUpperCase();
 }
 
-/** "6 years, 5 months" — reads better than making the reader subtract dates. */
 function lengthOfService(hireDate) {
   const start = dayjs(hireDate);
   if (!start.isValid()) return '—';
@@ -60,13 +58,6 @@ function describeChange(entry) {
   );
 }
 
-/**
- * Read-only view of one employee.
- *
- * Salary and hire date live here rather than in the table: they are
- * reference figures you look up, not something you scan a list by, and
- * keeping them out of the grid is what stopped it scrolling sideways.
- */
 export default function EmployeeDetailsModal({ open, employee, onClose, onEdit, onChanged }) {
   const { message } = App.useApp();
   const { isAdmin } = useAuth();
@@ -92,11 +83,6 @@ export default function EmployeeDetailsModal({ open, employee, onClose, onEdit, 
 
   const isActive = employee.status === 'Active';
 
-  /**
-   * Status is deliberately not a field on the edit form, so it is changed
-   * here as an explicit action. The rest of the record goes with it, since
-   * PUT replaces the whole resource.
-   */
   const toggleStatus = async () => {
     setSaving(true);
 
@@ -183,8 +169,6 @@ export default function EmployeeDetailsModal({ open, employee, onClose, onEdit, 
         </Flex>
       }
     >
-      {/* The figure people open this dialog for, given the space to be read
-          at a glance rather than buried in a row of equal-weight fields. */}
       <Field label="Monthly salary">
         <span className="detail__figure">{formatCurrency(employee.salary)}</span>
       </Field>

@@ -1,12 +1,5 @@
 const { sql, getPool } = require('../config/db');
 
-/**
- * Builds the shared WHERE clause for the report. Every filter is
- * optional and bound as a parameter.
- *
- * Soft-deleted employees are excluded from every branch: a departed
- * record must not silently inflate headcount or payroll.
- */
 function applyFilters(request, { departmentId, status, from, to }) {
   const where = ['e.DeletedAt IS NULL'];
 
@@ -62,14 +55,6 @@ const BREAKDOWN_SELECT = `
     FROM dbo.Employees e
     INNER JOIN dbo.Departments d ON d.DepartmentId = e.DepartmentId`;
 
-/**
- * The paged report.
- *
- * The row list is paged; the summary and the department breakdown are
- * not. Those are aggregates computed in SQL over the whole filtered set,
- * so they stay a fixed size no matter how large the workforce is - and
- * they must describe everything matched, not just the visible page.
- */
 async function getEmployeeReport(filters) {
   const { page = 1, pageSize = 25 } = filters;
 
@@ -110,10 +95,6 @@ async function getEmployeeReport(filters) {
   };
 }
 
-/**
- * Every matching row, unpaged - a partial export would be misleading,
- * and this is the one place a full result set is the point.
- */
 async function getEmployeeReportForExport(filters) {
   const pool = await getPool();
   const request = pool.request();

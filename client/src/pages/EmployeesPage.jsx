@@ -46,8 +46,6 @@ const SORT_KEYS = {
   status: 'status',
 };
 
-// Salary and hire date are no longer columns, but the API can still sort
-// by them, so they stay available from the toolbar.
 const SORT_OPTIONS = [
   { value: 'lastName:asc', label: 'Name (A–Z)' },
   { value: 'lastName:desc', label: 'Name (Z–A)' },
@@ -138,7 +136,6 @@ export default function EmployeesPage() {
     setFormOpen(true);
   };
 
-  // Edit is reached from the details view, so opening it hands over.
   const openEditFrom = (employee) => {
     setViewing(null);
     setEditing(employee);

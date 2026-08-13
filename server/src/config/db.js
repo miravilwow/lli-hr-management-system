@@ -17,8 +17,6 @@ const config = {
   },
 };
 
-// A single shared pool for the whole process. Every query goes through
-// getPool() so we never open a connection per request.
 let poolPromise = null;
 
 function getPool() {
@@ -30,7 +28,6 @@ function getPool() {
         return pool;
       })
       .catch((err) => {
-        // Reset so a later request can retry instead of reusing a failed promise.
         poolPromise = null;
         throw err;
       });

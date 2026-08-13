@@ -8,14 +8,8 @@ const idParamRule = [
     .withMessage('Employee id must be a positive integer'),
 ];
 
-// Treat an empty string the same as an absent parameter, so a cleared
-// filter in the UI is not rejected as invalid input.
 const optionalQuery = { values: 'falsy' };
 
-/**
- * Without these, page and pageSize reach the OFFSET/FETCH clause
- * unchecked and a negative value fails inside SQL Server as a 500.
- */
 const listQueryRules = [
   query('page')
     .optional(optionalQuery)

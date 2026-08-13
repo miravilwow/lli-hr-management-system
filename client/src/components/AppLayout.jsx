@@ -47,8 +47,6 @@ export default function AppLayout({ onToggleTheme, isDark }) {
   const { user, logout } = useAuth();
 
   const screens = Grid.useBreakpoint();
-  // A fixed sider is wrong on a phone: it eats a third of the width. Below
-  // lg the navigation moves into a drawer opened from the header.
   const isMobile = !screens.lg;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -149,8 +147,6 @@ export default function AppLayout({ onToggleTheme, isDark }) {
               <Button type="text" className="app-user" aria-label="Account menu">
                 <Flex align="center" gap={8}>
                   <Avatar size={26} icon={<UserOutlined />} />
-                  {/* Name and role are hidden on narrow screens; the
-                      avatar alone still opens the same menu. */}
                   {screens.sm && (
                     <>
                       <span className="app-user__name">{user?.fullName || user?.username}</span>

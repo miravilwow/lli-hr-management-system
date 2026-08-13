@@ -1,6 +1,5 @@
 const { query } = require('express-validator');
 
-// An empty string means "filter cleared", not "invalid value".
 const optionalQuery = { values: 'falsy' };
 
 const pagingRules = [
@@ -35,6 +34,5 @@ const reportFilterRules = [
 
 module.exports = {
   reportFilterRules,
-  // The export takes the same filters but no paging.
   reportPageRules: [...reportFilterRules, ...pagingRules],
 };

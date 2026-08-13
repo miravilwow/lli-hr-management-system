@@ -6,14 +6,6 @@ const { sql, getPool } = require('../config/db');
 const ACCESS_TTL = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_DAYS) || 7;
 
-/**
- * Only a hash of the refresh token is stored, for the same reason
- * passwords are hashed: a leak of the table must not hand over usable
- * sessions. SHA-256 is right here rather than bcrypt - the token is
- * already 256 bits of entropy, so there is nothing to brute force, and
- * refresh happens often enough that a deliberately slow hash would cost
- * real latency.
- */
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -26,7 +18,6 @@ function signAccessToken(user) {
   );
 }
 
-/** Issues a refresh token and records it so it can later be revoked. */
 async function issueRefreshToken(userId) {
   const token = crypto.randomBytes(48).toString('base64url');
 
@@ -47,15 +38,6 @@ async function issueRefreshToken(userId) {
   return { token, expiresAt };
 }
 
-/**
- * Consumes a refresh token and issues a replacement.
- *
- * The presented token is revoked as part of the same operation, so each
- * refresh token is usable exactly once. If an old one is presented
- * again the row is already revoked and the attempt fails, which is what
- * makes a stolen token useful only until the legitimate client next
- * refreshes.
- */
 async function rotateRefreshToken(token) {
   const pool = await getPool();
 
@@ -74,7 +56,6 @@ async function rotateRefreshToken(token) {
   return result.recordset[0]?.userId ?? null;
 }
 
-/** Ends a single session. */
 async function revokeRefreshToken(token) {
   const pool = await getPool();
 
@@ -92,7 +73,6 @@ async function revokeRefreshToken(token) {
   return result.recordset[0].affected > 0;
 }
 
-/** Ends every session for a user - used when forcing a sign out. */
 async function revokeAllForUser(userId) {
   const pool = await getPool();
 

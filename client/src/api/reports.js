@@ -4,11 +4,6 @@ export function fetchEmployeeReport(params) {
   return api.get('/reports/employees', { params }).then((res) => res.data);
 }
 
-/**
- * The export endpoint requires the bearer token, so the file is fetched
- * through axios and handed to the browser as a blob rather than being
- * opened as a plain link.
- */
 export async function downloadEmployeeReportCsv(params) {
   const response = await api.get('/reports/employees/export', {
     params,

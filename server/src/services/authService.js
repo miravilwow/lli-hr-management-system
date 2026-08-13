@@ -21,8 +21,6 @@ async function findUserByUsername(username) {
 async function login(username, password) {
   const user = await findUserByUsername(username);
 
-  // Same message whether the user is missing or the password is wrong,
-  // so the response cannot be used to enumerate valid usernames.
   const invalid = new ApiError(401, 'Invalid username or password');
 
   if (!user) throw invalid;
@@ -40,7 +38,6 @@ async function login(username, password) {
   const refresh = await tokenService.issueRefreshToken(profile.userId);
 
   return {
-    // `token` is kept as the field name so existing clients keep working.
     token: tokenService.signAccessToken(profile),
     refreshToken: refresh.token,
     expiresIn: tokenService.ACCESS_TTL,
@@ -48,10 +45,6 @@ async function login(username, password) {
   };
 }
 
-/**
- * Exchanges a refresh token for a new access token, rotating the refresh
- * token in the process so each one is usable exactly once.
- */
 async function refresh(refreshToken) {
   if (!refreshToken) {
     throw new ApiError(400, 'A refresh token is required');
@@ -79,7 +72,6 @@ async function refresh(refreshToken) {
   };
 }
 
-/** Ends the session server-side, so the refresh token stops working. */
 async function logout(refreshToken) {
   if (refreshToken) {
     await tokenService.revokeRefreshToken(refreshToken);

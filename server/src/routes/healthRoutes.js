@@ -1,18 +1,9 @@
 const express = require('express');
 
-// Referenced through the module rather than destructured so the failure
-// path can be exercised in tests.
 const db = require('../config/db');
 
 const router = express.Router();
 
-/**
- * Readiness - the API can actually do its job.
- *
- * This check previously returned a static object, so it reported healthy
- * while the database was unreachable and every real request was failing.
- * It now proves the connection before saying so.
- */
 async function readiness(req, res) {
   const startedAt = Date.now();
 
@@ -34,11 +25,6 @@ async function readiness(req, res) {
   }
 }
 
-/**
- * Liveness - the process is up and serving HTTP.
- * Deliberately does not touch the database: a failing dependency should
- * not cause an orchestrator to restart an otherwise healthy process.
- */
 function liveness(req, res) {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 }

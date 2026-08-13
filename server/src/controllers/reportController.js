@@ -36,13 +36,10 @@ const CSV_COLUMNS = [
 ];
 
 async function exportEmployeeReport(req, res) {
-  // Exports use the unpaged query: a partial export would be misleading.
   const { rows, summary } = await reportService.getEmployeeReportForExport(readFilters(req.query));
 
   const csv = toCsv(rows, CSV_COLUMNS);
 
-  // A trailing totals row so the exported file is self-contained. Each
-  // value sits under the column it belongs to.
   const totals = toCsvRow([
     'TOTAL',
     '',

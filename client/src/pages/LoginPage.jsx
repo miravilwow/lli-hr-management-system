@@ -41,8 +41,6 @@ export default function LoginPage() {
 
   return (
     <div className="login">
-      {/* Hidden below 900px: on a phone the form should be the whole screen
-          rather than something to scroll past marketing to reach. */}
       <aside className="login__aside">
         <div className="app-brand" style={{ padding: 0, color: '#fff' }}>
           <span className="app-brand__mark" style={{ background: 'rgba(255,255,255,0.16)' }}>

@@ -1,17 +1,4 @@
 #!/usr/bin/env node
-/**
- * Applies a .sql file to MSSQL, splitting on GO batch separators (which
- * the mssql driver does not understand on its own).
- *
- *   node scripts/run-sql.js db/01_schema.sql master
- *   node scripts/run-sql.js db/04_governance.sql LLI_HR_DB
- *
- * Credentials come from server/.env, but the schema scripts need rights
- * the application account deliberately does not have - it cannot create
- * or alter tables by design. Set DB_ADMIN_USER / DB_ADMIN_PASSWORD to
- * run migrations as an administrator; they fall back to DB_USER /
- * DB_PASSWORD when unset, which is what CI uses.
- */
 const fs = require('fs');
 const path = require('path');
 
@@ -49,7 +36,6 @@ const config = {
   connectionTimeout: 60000,
 };
 
-/** SQL Server can accept connections slightly after it reports healthy. */
 async function connectWithRetry(attempts = 10) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {

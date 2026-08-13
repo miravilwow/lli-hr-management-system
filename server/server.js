@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const { assertEnv } = require('./src/config/env');
 
-// Validate configuration before anything tries to use it.
 assertEnv();
 
 const app = require('./src/app');
@@ -12,7 +11,6 @@ const PORT = process.env.PORT || 5000;
 
 async function start() {
   try {
-    // Fail fast on a bad connection string rather than on the first request.
     await getPool();
   } catch (err) {
     console.error('[startup] could not connect to MSSQL:', err.message);
