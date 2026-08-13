@@ -1,4 +1,4 @@
-const path = require('path');
+﻿const path = require('path');
 
 // Load .env before anything reads process.env, and mark the process as a
 // test run so rate limiting and request logging step aside.
@@ -18,7 +18,7 @@ let cachedToken = null;
 async function getToken() {
   if (cachedToken) return cachedToken;
 
-  const res = await request(app).post('/api/auth/login').send(CREDENTIALS);
+  const res = await request(app).post('/api/v1/auth/login').send(CREDENTIALS);
 
   if (res.status !== 200) {
     throw new Error(
@@ -69,7 +69,7 @@ function buildEmployee(overrides = {}) {
 /** Removes a record created during a test, ignoring an already-deleted row. */
 async function cleanup(employeeId) {
   if (!employeeId) return;
-  await api('delete', `/api/employees/${employeeId}`);
+  await api('delete', `/api/v1/employees/${employeeId}`);
 }
 
 module.exports = { app, request, api, getToken, buildEmployee, cleanup, closePool, CREDENTIALS };

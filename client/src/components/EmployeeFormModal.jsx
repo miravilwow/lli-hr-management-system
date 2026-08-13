@@ -125,8 +125,8 @@ export default function EmployeeFormModal({ open, employee, departments, onClose
               <Select
                 placeholder="Select a department"
                 options={departments.map((d) => ({
-                  value: d.DepartmentId,
-                  label: d.DepartmentName,
+                  value: d.departmentId,
+                  label: d.departmentName,
                 }))}
               />
             </Form.Item>

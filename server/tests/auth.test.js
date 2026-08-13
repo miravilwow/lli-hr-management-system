@@ -1,4 +1,4 @@
-const { test, describe, after } = require('node:test');
+﻿const { test, describe, after, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 
@@ -8,9 +8,9 @@ after(async () => {
   await closePool();
 });
 
-describe('POST /api/auth/login', () => {
+describe('POST /api/v1/auth/login', () => {
   test('returns a token and the user for valid credentials', async () => {
-    const res = await request(app).post('/api/auth/login').send(CREDENTIALS);
+    const res = await request(app).post('/api/v1/auth/login').send(CREDENTIALS);
 
     assert.equal(res.status, 200);
     assert.ok(res.body.token, 'expected a token');
@@ -18,7 +18,7 @@ describe('POST /api/auth/login', () => {
   });
 
   test('never returns the password hash', async () => {
-    const res = await request(app).post('/api/auth/login').send(CREDENTIALS);
+    const res = await request(app).post('/api/v1/auth/login').send(CREDENTIALS);
 
     const body = JSON.stringify(res.body);
     assert.ok(!body.includes('PasswordHash'), 'response leaked the hash field');
@@ -27,7 +27,7 @@ describe('POST /api/auth/login', () => {
 
   test('rejects a wrong password with 401', async () => {
     const res = await request(app)
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ username: 'admin', password: 'not-the-password' });
 
     assert.equal(res.status, 401);
@@ -36,11 +36,11 @@ describe('POST /api/auth/login', () => {
 
   test('gives the same message for an unknown user as for a wrong password', async () => {
     const unknownUser = await request(app)
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ username: 'does-not-exist', password: 'whatever' });
 
     const wrongPassword = await request(app)
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ username: 'admin', password: 'wrong' });
 
     // Differing messages would let an attacker enumerate valid usernames.
@@ -49,29 +49,29 @@ describe('POST /api/auth/login', () => {
   });
 
   test('rejects a missing password with 400', async () => {
-    const res = await request(app).post('/api/auth/login').send({ username: 'admin' });
+    const res = await request(app).post('/api/v1/auth/login').send({ username: 'admin' });
 
     assert.equal(res.status, 400);
     assert.equal(res.body.message, 'Validation failed');
   });
 });
 
-describe('GET /api/auth/me', () => {
+describe('GET /api/v1/auth/me', () => {
   test('returns the current user for a valid token', async () => {
-    const res = await api('get', '/api/auth/me');
+    const res = await api('get', '/api/v1/auth/me');
 
     assert.equal(res.status, 200);
     assert.equal(res.body.username, 'admin');
   });
 
   test('rejects a request with no token', async () => {
-    const res = await request(app).get('/api/auth/me');
+    const res = await request(app).get('/api/v1/auth/me');
     assert.equal(res.status, 401);
   });
 
   test('rejects a malformed token', async () => {
     const res = await request(app)
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .set('Authorization', 'Bearer not-a-real-token');
 
     assert.equal(res.status, 401);
@@ -80,7 +80,7 @@ describe('GET /api/auth/me', () => {
   test('rejects a token signed with a different secret', async () => {
     const forged = jwt.sign({ sub: 1, username: 'admin' }, 'attacker-chosen-secret');
 
-    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${forged}`);
+    const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${forged}`);
 
     assert.equal(res.status, 401);
   });
@@ -90,7 +90,7 @@ describe('GET /api/auth/me', () => {
       expiresIn: '-1s',
     });
 
-    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${expired}`);
+    const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${expired}`);
 
     assert.equal(res.status, 401);
     assert.match(res.body.message, /expired/i);
@@ -99,7 +99,7 @@ describe('GET /api/auth/me', () => {
   test('rejects a token for a user that no longer exists', async () => {
     const ghost = jwt.sign({ sub: 999999, username: 'ghost' }, process.env.JWT_SECRET);
 
-    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${ghost}`);
+    const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${ghost}`);
 
     assert.equal(res.status, 401);
   });
@@ -107,14 +107,14 @@ describe('GET /api/auth/me', () => {
 
 describe('route protection', () => {
   const protectedRoutes = [
-    ['get', '/api/employees'],
-    ['get', '/api/employees/1'],
-    ['post', '/api/employees'],
-    ['put', '/api/employees/1'],
-    ['delete', '/api/employees/1'],
-    ['get', '/api/departments'],
-    ['get', '/api/reports/employees'],
-    ['get', '/api/reports/employees/export'],
+    ['get', '/api/v1/employees'],
+    ['get', '/api/v1/employees/1'],
+    ['post', '/api/v1/employees'],
+    ['put', '/api/v1/employees/1'],
+    ['delete', '/api/v1/employees/1'],
+    ['get', '/api/v1/departments'],
+    ['get', '/api/v1/reports/employees'],
+    ['get', '/api/v1/reports/employees/export'],
   ];
 
   for (const [method, url] of protectedRoutes) {
@@ -125,12 +125,73 @@ describe('route protection', () => {
   }
 });
 
-describe('baseline hardening', () => {
-  test('health endpoint is reachable without a token', async () => {
-    const res = await request(app).get('/api/health');
+describe('health checks', () => {
+  test('liveness is reachable without a token', async () => {
+    const res = await request(app).get('/api/health/live');
     assert.equal(res.status, 200);
     assert.equal(res.body.status, 'ok');
   });
+
+  // Regression: readiness used to return a static object, reporting
+  // healthy while the database was unreachable.
+  test('readiness actually queries the database', async () => {
+    const res = await request(app).get('/api/health/ready');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.database.status, 'up');
+    assert.equal(typeof res.body.database.latencyMs, 'number');
+  });
+
+  test('the default health route is the readiness check', async () => {
+    const res = await request(app).get('/api/health');
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.database, 'expected the default route to prove the database');
+  });
+
+  test('health sits outside the version prefix', async () => {
+    const versioned = await request(app).get('/api/v1/health');
+    assert.equal(versioned.status, 404);
+  });
+
+  // The point of the fix: a dead database must not read as healthy.
+  test('readiness reports 503 when the database is unreachable', async () => {
+    const db = require('../src/config/db');
+
+    const stub = mock.method(db, 'getPool', () =>
+      Promise.reject(new Error('connection refused'))
+    );
+
+    try {
+      const res = await request(app).get('/api/health/ready');
+
+      assert.equal(res.status, 503);
+      assert.equal(res.body.status, 'unavailable');
+      assert.equal(res.body.database.status, 'down');
+    } finally {
+      stub.mock.restore();
+    }
+  });
+
+  test('liveness still succeeds when the database is unreachable', async () => {
+    const db = require('../src/config/db');
+
+    const stub = mock.method(db, 'getPool', () =>
+      Promise.reject(new Error('connection refused'))
+    );
+
+    try {
+      // A failing dependency should not make an orchestrator restart the
+      // process, so liveness deliberately ignores the database.
+      const res = await request(app).get('/api/health/live');
+      assert.equal(res.status, 200);
+    } finally {
+      stub.mock.restore();
+    }
+  });
+});
+
+describe('baseline hardening', () => {
 
   test('security headers are set', async () => {
     const res = await request(app).get('/api/health');

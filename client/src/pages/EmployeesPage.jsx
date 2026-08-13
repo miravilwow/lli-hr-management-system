@@ -250,7 +250,7 @@ export default function EmployeesPage() {
           style={{ width: 220 }}
           value={query.departmentId}
           onChange={(value) => updateFilter({ departmentId: value })}
-          options={departments.map((d) => ({ value: d.DepartmentId, label: d.DepartmentName }))}
+          options={departments.map((d) => ({ value: d.departmentId, label: d.departmentName }))}
         />
         <Select
           allowClear

@@ -1,4 +1,4 @@
-const { test, describe, after } = require('node:test');
+﻿const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { api, closePool } = require('./helpers');
@@ -7,9 +7,9 @@ after(async () => {
   await closePool();
 });
 
-describe('GET /api/reports/employees', () => {
+describe('GET /api/v1/reports/employees', () => {
   test('returns rows, summary totals and a department breakdown', async () => {
-    const res = await api('get', '/api/reports/employees');
+    const res = await api('get', '/api/v1/reports/employees');
 
     assert.equal(res.status, 200);
     assert.ok(Array.isArray(res.body.rows));
@@ -19,13 +19,13 @@ describe('GET /api/reports/employees', () => {
   });
 
   test('headcount matches the number of rows returned', async () => {
-    const res = await api('get', '/api/reports/employees');
+    const res = await api('get', '/api/v1/reports/employees');
 
     assert.equal(res.body.summary.headcount, res.body.rows.length);
   });
 
   test('total payroll equals the sum of the row salaries', async () => {
-    const res = await api('get', '/api/reports/employees');
+    const res = await api('get', '/api/v1/reports/employees');
 
     const summed = res.body.rows.reduce((total, row) => total + Number(row.salary), 0);
 
@@ -33,7 +33,7 @@ describe('GET /api/reports/employees', () => {
   });
 
   test('department breakdown headcounts add up to the overall headcount', async () => {
-    const res = await api('get', '/api/reports/employees');
+    const res = await api('get', '/api/v1/reports/employees');
 
     const summed = res.body.byDepartment.reduce((total, row) => total + row.headcount, 0);
 
@@ -41,8 +41,8 @@ describe('GET /api/reports/employees', () => {
   });
 
   test('filtering by department narrows the result', async () => {
-    const all = await api('get', '/api/reports/employees');
-    const filtered = await api('get', '/api/reports/employees?departmentId=1');
+    const all = await api('get', '/api/v1/reports/employees');
+    const filtered = await api('get', '/api/v1/reports/employees?departmentId=1');
 
     assert.equal(filtered.status, 200);
     assert.ok(filtered.body.summary.headcount < all.body.summary.headcount);
@@ -51,14 +51,14 @@ describe('GET /api/reports/employees', () => {
   });
 
   test('filtering by status returns only that status', async () => {
-    const res = await api('get', '/api/reports/employees?status=Inactive');
+    const res = await api('get', '/api/v1/reports/employees?status=Inactive');
 
     assert.equal(res.status, 200);
     assert.ok(res.body.rows.every((r) => r.status === 'Inactive'));
   });
 
   test('the hire date range is inclusive of its bounds', async () => {
-    const res = await api('get', '/api/reports/employees?from=2019-03-11&to=2019-03-11');
+    const res = await api('get', '/api/v1/reports/employees?from=2019-03-11&to=2019-03-11');
 
     assert.equal(res.status, 200);
     assert.ok(
@@ -68,7 +68,7 @@ describe('GET /api/reports/employees', () => {
   });
 
   test('a range matching nothing returns zeroed totals rather than nulls', async () => {
-    const res = await api('get', '/api/reports/employees?from=1990-01-01&to=1990-12-31');
+    const res = await api('get', '/api/v1/reports/employees?from=1990-01-01&to=1990-12-31');
 
     assert.equal(res.status, 200);
     assert.equal(res.body.rows.length, 0);
@@ -78,10 +78,10 @@ describe('GET /api/reports/employees', () => {
   });
 
   const badFilters = [
-    ['unknown status', '/api/reports/employees?status=Retired'],
-    ['non-numeric department', '/api/reports/employees?departmentId=abc'],
-    ['invalid from date', '/api/reports/employees?from=not-a-date'],
-    ['invalid to date', '/api/reports/employees?to=32-13-2020'],
+    ['unknown status', '/api/v1/reports/employees?status=Retired'],
+    ['non-numeric department', '/api/v1/reports/employees?departmentId=abc'],
+    ['invalid from date', '/api/v1/reports/employees?from=not-a-date'],
+    ['invalid to date', '/api/v1/reports/employees?to=32-13-2020'],
   ];
 
   for (const [label, url] of badFilters) {
@@ -92,9 +92,9 @@ describe('GET /api/reports/employees', () => {
   }
 });
 
-describe('GET /api/reports/employees/export', () => {
+describe('GET /api/v1/reports/employees/export', () => {
   test('responds as a CSV attachment', async () => {
-    const res = await api('get', '/api/reports/employees/export');
+    const res = await api('get', '/api/v1/reports/employees/export');
 
     assert.equal(res.status, 200);
     assert.match(res.headers['content-type'], /text\/csv/);
@@ -102,8 +102,8 @@ describe('GET /api/reports/employees/export', () => {
   });
 
   test('has a header row, one row per employee and a totals row', async () => {
-    const report = await api('get', '/api/reports/employees?departmentId=1');
-    const res = await api('get', '/api/reports/employees/export?departmentId=1');
+    const report = await api('get', '/api/v1/reports/employees?departmentId=1');
+    const res = await api('get', '/api/v1/reports/employees/export?departmentId=1');
 
     const lines = res.text.trim().split(/\r?\n/);
 
@@ -113,8 +113,8 @@ describe('GET /api/reports/employees/export', () => {
   });
 
   test('the totals row carries the payroll figure from the summary', async () => {
-    const report = await api('get', '/api/reports/employees?departmentId=1');
-    const res = await api('get', '/api/reports/employees/export?departmentId=1');
+    const report = await api('get', '/api/v1/reports/employees?departmentId=1');
+    const res = await api('get', '/api/v1/reports/employees/export?departmentId=1');
 
     const totalsRow = res.text.trim().split(/\r?\n/).at(-1);
 
@@ -125,7 +125,7 @@ describe('GET /api/reports/employees/export', () => {
   });
 
   test('applies the same filters as the report itself', async () => {
-    const res = await api('get', '/api/reports/employees/export?departmentId=1');
+    const res = await api('get', '/api/v1/reports/employees/export?departmentId=1');
 
     const lines = res.text.trim().split(/\r?\n/).slice(1, -1);
 
@@ -134,7 +134,7 @@ describe('GET /api/reports/employees/export', () => {
   });
 
   test('rejects an invalid filter with 400 rather than exporting everything', async () => {
-    const res = await api('get', '/api/reports/employees/export?status=Retired');
+    const res = await api('get', '/api/v1/reports/employees/export?status=Retired');
     assert.equal(res.status, 400);
   });
 });

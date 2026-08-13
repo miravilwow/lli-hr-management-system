@@ -153,8 +153,8 @@ export default function ReportPage() {
             value={filters.departmentId}
             onChange={(value) => setFilters((p) => ({ ...p, departmentId: value }))}
             options={departments.map((d) => ({
-              value: d.DepartmentId,
-              label: d.DepartmentName,
+              value: d.departmentId,
+              label: d.departmentName,
             }))}
           />
           <Select

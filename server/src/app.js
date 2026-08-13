@@ -9,7 +9,11 @@ const requireAuth = require('./middleware/auth');
 const authRoutes = require('./routes/authRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+
+// Business routes are versioned so a breaking change has somewhere to go.
+const V1 = '/api/v1';
 
 const app = express();
 
@@ -29,17 +33,17 @@ if (process.env.NODE_ENV !== 'test') {
 
 app.use('/api', apiLimiter);
 
-// Liveness probe, also handy for confirming the API is reachable.
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Operational endpoints sit outside the version prefix: they describe the
+// process, not the business contract, and monitors should not have to be
+// updated when the API version changes.
+app.use('/api/health', healthRoutes);
 
-app.use('/api/auth', authRoutes);
+app.use(`${V1}/auth`, authRoutes);
 
 // Everything below this point requires a valid token.
-app.use('/api/departments', requireAuth, departmentRoutes);
-app.use('/api/employees', requireAuth, employeeRoutes);
-app.use('/api/reports', requireAuth, reportRoutes);
+app.use(`${V1}/departments`, requireAuth, departmentRoutes);
+app.use(`${V1}/employees`, requireAuth, employeeRoutes);
+app.use(`${V1}/reports`, requireAuth, reportRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
