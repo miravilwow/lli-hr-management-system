@@ -35,4 +35,14 @@ async function create(req, res) {
   res.status(201).json(employee);
 }
 
-module.exports = { list, getById, create };
+async function update(req, res) {
+  const employee = await employeeService.updateEmployee(Number(req.params.id), req.body);
+
+  if (!employee) {
+    throw new ApiError(404, 'Employee not found');
+  }
+
+  res.json(employee);
+}
+
+module.exports = { list, getById, create, update };

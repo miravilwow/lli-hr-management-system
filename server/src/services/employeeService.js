@@ -156,4 +156,36 @@ async function createEmployee(employee) {
   }
 }
 
-module.exports = { listEmployees, getEmployeeById, createEmployee };
+async function updateEmployee(employeeId, employee) {
+  const pool = await getPool();
+  const request = pool.request().input('employeeId', sql.Int, employeeId);
+
+  try {
+    const result = await bindEmployeeInputs(request, employee).query(`
+      UPDATE dbo.Employees
+      SET EmployeeCode = @employeeCode,
+          FirstName    = @firstName,
+          LastName     = @lastName,
+          Email        = @email,
+          DepartmentId = @departmentId,
+          Position     = @position,
+          Salary       = @salary,
+          HireDate     = @hireDate,
+          Status       = @status,
+          UpdatedAt    = SYSUTCDATETIME()
+      WHERE EmployeeId = @employeeId;
+
+      SELECT @@ROWCOUNT AS affected;
+    `);
+
+    if (result.recordset[0].affected === 0) {
+      return null;
+    }
+
+    return getEmployeeById(employeeId);
+  } catch (err) {
+    throw translateSqlError(err);
+  }
+}
+
+module.exports = { listEmployees, getEmployeeById, createEmployee, updateEmployee };
