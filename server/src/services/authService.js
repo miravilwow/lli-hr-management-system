@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 const { sql, getPool } = require('../config/db');
 const { ApiError } = require('../middleware/errorHandler');
+const tokenService = require('./tokenService');
 
 async function findUserByUsername(username) {
   const pool = await getPool();
@@ -30,21 +30,60 @@ async function login(username, password) {
   const passwordMatches = await bcrypt.compare(password, user.PasswordHash);
   if (!passwordMatches) throw invalid;
 
-  const token = jwt.sign(
-    { sub: user.UserId, username: user.Username, role: user.Role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
-  );
+  const profile = {
+    userId: user.UserId,
+    username: user.Username,
+    fullName: user.FullName,
+    role: user.Role,
+  };
+
+  const refresh = await tokenService.issueRefreshToken(profile.userId);
 
   return {
-    token,
-    user: {
-      userId: user.UserId,
-      username: user.Username,
-      fullName: user.FullName,
-      role: user.Role,
-    },
+    // `token` is kept as the field name so existing clients keep working.
+    token: tokenService.signAccessToken(profile),
+    refreshToken: refresh.token,
+    expiresIn: tokenService.ACCESS_TTL,
+    user: profile,
   };
+}
+
+/**
+ * Exchanges a refresh token for a new access token, rotating the refresh
+ * token in the process so each one is usable exactly once.
+ */
+async function refresh(refreshToken) {
+  if (!refreshToken) {
+    throw new ApiError(400, 'A refresh token is required');
+  }
+
+  const userId = await tokenService.rotateRefreshToken(refreshToken);
+
+  if (!userId) {
+    throw new ApiError(401, 'Your session has expired, please sign in again');
+  }
+
+  const profile = await getUserById(userId);
+
+  if (!profile) {
+    throw new ApiError(401, 'Account no longer exists');
+  }
+
+  const next = await tokenService.issueRefreshToken(userId);
+
+  return {
+    token: tokenService.signAccessToken(profile),
+    refreshToken: next.token,
+    expiresIn: tokenService.ACCESS_TTL,
+    user: profile,
+  };
+}
+
+/** Ends the session server-side, so the refresh token stops working. */
+async function logout(refreshToken) {
+  if (refreshToken) {
+    await tokenService.revokeRefreshToken(refreshToken);
+  }
 }
 
 async function getUserById(userId) {
@@ -69,4 +108,4 @@ async function getUserById(userId) {
   };
 }
 
-module.exports = { login, getUserById };
+module.exports = { login, refresh, logout, getUserById };

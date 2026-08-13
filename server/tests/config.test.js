@@ -73,6 +73,11 @@ describe('committed .env.example files contain no real secrets', () => {
 
   const SENSITIVE_KEY = /(PASSWORD|SECRET|TOKEN|APIKEY|API_KEY|CONNECTION_STRING)/i;
 
+  // Durations and counts are configuration, not credentials. Without this
+  // a setting like REFRESH_TOKEN_DAYS=7 trips the check purely because
+  // its name contains "TOKEN".
+  const NOT_A_SECRET = /^\d+\s*(ms|s|m|h|d|days?|hours?|minutes?)?$/i;
+
   for (const file of templates) {
     test(`${path.relative(REPO_ROOT, file)} has only placeholder values`, () => {
       if (!fs.existsSync(file)) return;
@@ -86,7 +91,10 @@ describe('committed .env.example files contain no real secrets', () => {
         const [key, ...rest] = trimmed.split('=');
         const value = rest.join('=').trim();
 
-        if (SENSITIVE_KEY.test(key) && value && !PLACEHOLDER.test(value)) {
+        const looksSensitive = SENSITIVE_KEY.test(key);
+        const looksSafe = !value || PLACEHOLDER.test(value) || NOT_A_SECRET.test(value);
+
+        if (looksSensitive && !looksSafe) {
           offenders.push(key.trim());
         }
       }
@@ -99,4 +107,18 @@ describe('committed .env.example files contain no real secrets', () => {
       );
     });
   }
+
+  test('a real credential in a template is still caught', () => {
+    // Guards that have never been seen to fail are not guards.
+    const sensitive = (key, value) =>
+      SENSITIVE_KEY.test(key) && !(PLACEHOLDER.test(value) || NOT_A_SECRET.test(value));
+
+    assert.equal(sensitive('DB_PASSWORD', 'Miravilwowash05'), true);
+    assert.equal(sensitive('JWT_SECRET', 'Assessment2026'), true);
+
+    // ...while genuine configuration is not.
+    assert.equal(sensitive('REFRESH_TOKEN_DAYS', '7'), false);
+    assert.equal(sensitive('JWT_EXPIRES_IN', '15m'), false);
+    assert.equal(sensitive('DB_PASSWORD', 'your_sa_password_here'), false);
+  });
 });

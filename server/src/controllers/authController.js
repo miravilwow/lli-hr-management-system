@@ -19,4 +19,17 @@ async function me(req, res) {
   res.json(user);
 }
 
-module.exports = { login, me };
+async function refresh(req, res) {
+  const result = await authService.refresh(req.body.refreshToken);
+  res.json(result);
+}
+
+async function logout(req, res) {
+  await authService.logout(req.body.refreshToken);
+
+  // Idempotent on purpose: signing out twice, or with a token the server
+  // has already revoked, is not an error worth surfacing to the user.
+  res.status(204).send();
+}
+
+module.exports = { login, refresh, logout, me };
