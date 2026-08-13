@@ -1,19 +1,26 @@
 const employeeService = require('../services/employeeService');
 const { ApiError } = require('../middleware/errorHandler');
 
+/** undefined for an absent value, a number otherwise. */
+function toNumber(value) {
+  return value === undefined || value === '' ? undefined : Number(value);
+}
+
 async function list(req, res) {
-  // Query parameters are validated and coerced by listQueryRules, so
-  // anything present here is already the right type and in range.
   const { search, departmentId, status, sortBy, sortOrder, page, pageSize } = req.query;
 
+  // listQueryRules has already rejected anything out of range, but its
+  // toInt() sanitisers cannot write back to req.query: Express 5 exposes
+  // it as a getter, so the values arrive here as strings. Coerce them
+  // explicitly, otherwise the paging numbers echo back as strings.
   const result = await employeeService.listEmployees({
     search: search || undefined,
-    departmentId,
-    status,
+    departmentId: toNumber(departmentId),
+    status: status || undefined,
     sortBy,
     sortOrder,
-    page: page ?? 1,
-    pageSize: pageSize ?? 10,
+    page: toNumber(page) ?? 1,
+    pageSize: toNumber(pageSize) ?? 10,
   });
 
   res.json(result);
