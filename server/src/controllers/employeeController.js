@@ -30,4 +30,9 @@ async function getById(req, res) {
   res.json(employee);
 }
 
-module.exports = { list, getById };
+async function create(req, res) {
+  const employee = await employeeService.createEmployee(req.body);
+  res.status(201).json(employee);
+}
+
+module.exports = { list, getById, create };

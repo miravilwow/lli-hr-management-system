@@ -1,4 +1,23 @@
 const { sql, getPool } = require('../config/db');
+const { ApiError } = require('../middleware/errorHandler');
+
+// SQL Server error numbers we can turn into a meaningful client response
+// instead of letting them surface as a generic 500.
+const UNIQUE_VIOLATION = [2601, 2627];
+const FOREIGN_KEY_VIOLATION = 547;
+
+function translateSqlError(err) {
+  if (UNIQUE_VIOLATION.includes(err.number)) {
+    const field = err.message.includes('UQ_Employees_Email') ? 'email' : 'employee code';
+    return new ApiError(409, `An employee with this ${field} already exists`);
+  }
+
+  if (err.number === FOREIGN_KEY_VIOLATION) {
+    return new ApiError(400, 'The selected department does not exist');
+  }
+
+  return err;
+}
 
 // Columns the client is allowed to sort by, mapped to real SQL. Whitelisting
 // keeps the ORDER BY clause free of any user-supplied text.
@@ -105,4 +124,36 @@ async function getEmployeeById(employeeId) {
   return result.recordset[0] || null;
 }
 
-module.exports = { listEmployees, getEmployeeById };
+/** Binds the shared employee columns onto a request object. */
+function bindEmployeeInputs(request, employee) {
+  return request
+    .input('employeeCode', sql.NVarChar(20), employee.employeeCode)
+    .input('firstName', sql.NVarChar(50), employee.firstName)
+    .input('lastName', sql.NVarChar(50), employee.lastName)
+    .input('email', sql.NVarChar(100), employee.email)
+    .input('departmentId', sql.Int, employee.departmentId)
+    .input('position', sql.NVarChar(100), employee.position)
+    .input('salary', sql.Decimal(18, 2), employee.salary)
+    .input('hireDate', sql.Date, employee.hireDate)
+    .input('status', sql.NVarChar(20), employee.status || 'Active');
+}
+
+async function createEmployee(employee) {
+  const pool = await getPool();
+
+  try {
+    const result = await bindEmployeeInputs(pool.request(), employee).query(`
+      INSERT INTO dbo.Employees
+        (EmployeeCode, FirstName, LastName, Email, DepartmentId, Position, Salary, HireDate, Status)
+      OUTPUT INSERTED.EmployeeId
+      VALUES
+        (@employeeCode, @firstName, @lastName, @email, @departmentId, @position, @salary, @hireDate, @status);
+    `);
+
+    return getEmployeeById(result.recordset[0].EmployeeId);
+  } catch (err) {
+    throw translateSqlError(err);
+  }
+}
+
+module.exports = { listEmployees, getEmployeeById, createEmployee };
