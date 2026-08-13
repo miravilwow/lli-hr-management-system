@@ -3,7 +3,10 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const requireAuth = require('./middleware/auth');
 const authRoutes = require('./routes/authRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
 
 const app = express();
 
@@ -17,6 +20,10 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+
+// Everything below this point requires a valid token.
+app.use('/api/departments', requireAuth, departmentRoutes);
+app.use('/api/employees', requireAuth, employeeRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

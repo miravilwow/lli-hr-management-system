@@ -1,0 +1,108 @@
+const { sql, getPool } = require('../config/db');
+
+// Columns the client is allowed to sort by, mapped to real SQL. Whitelisting
+// keeps the ORDER BY clause free of any user-supplied text.
+const SORTABLE = {
+  employeeCode: 'e.EmployeeCode',
+  lastName: 'e.LastName',
+  department: 'd.DepartmentName',
+  position: 'e.Position',
+  salary: 'e.Salary',
+  hireDate: 'e.HireDate',
+  status: 'e.Status',
+};
+
+const SELECT_COLUMNS = `
+    e.EmployeeId    AS employeeId,
+    e.EmployeeCode  AS employeeCode,
+    e.FirstName     AS firstName,
+    e.LastName      AS lastName,
+    e.Email         AS email,
+    e.DepartmentId  AS departmentId,
+    d.DepartmentName AS departmentName,
+    e.Position      AS position,
+    e.Salary        AS salary,
+    e.HireDate      AS hireDate,
+    e.Status        AS status,
+    e.CreatedAt     AS createdAt,
+    e.UpdatedAt     AS updatedAt`;
+
+/**
+ * Paged, filtered employee list.
+ * Every filter is optional and bound as a parameter.
+ */
+async function listEmployees({ search, departmentId, status, sortBy, sortOrder, page = 1, pageSize = 10 }) {
+  const pool = await getPool();
+  const request = pool.request();
+
+  const where = [];
+
+  if (search) {
+    request.input('search', sql.NVarChar(100), `%${search}%`);
+    where.push(`(
+      e.FirstName LIKE @search OR
+      e.LastName LIKE @search OR
+      e.Email LIKE @search OR
+      e.EmployeeCode LIKE @search OR
+      e.Position LIKE @search
+    )`);
+  }
+
+  if (departmentId) {
+    request.input('departmentId', sql.Int, departmentId);
+    where.push('e.DepartmentId = @departmentId');
+  }
+
+  if (status) {
+    request.input('status', sql.NVarChar(20), status);
+    where.push('e.Status = @status');
+  }
+
+  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  const orderColumn = SORTABLE[sortBy] || 'e.EmployeeId';
+  const orderDirection = sortOrder === 'desc' ? 'DESC' : 'ASC';
+
+  request.input('offset', sql.Int, (page - 1) * pageSize);
+  request.input('pageSize', sql.Int, pageSize);
+
+  const result = await request.query(`
+    SELECT COUNT(*) AS total
+    FROM dbo.Employees e
+    INNER JOIN dbo.Departments d ON d.DepartmentId = e.DepartmentId
+    ${whereClause};
+
+    SELECT ${SELECT_COLUMNS}
+    FROM dbo.Employees e
+    INNER JOIN dbo.Departments d ON d.DepartmentId = e.DepartmentId
+    ${whereClause}
+    ORDER BY ${orderColumn} ${orderDirection}
+    OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;
+  `);
+
+  const [totals, rows] = result.recordsets;
+
+  return {
+    data: rows,
+    total: totals[0].total,
+    page,
+    pageSize,
+  };
+}
+
+async function getEmployeeById(employeeId) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('employeeId', sql.Int, employeeId)
+    .query(`
+      SELECT ${SELECT_COLUMNS}
+      FROM dbo.Employees e
+      INNER JOIN dbo.Departments d ON d.DepartmentId = e.DepartmentId
+      WHERE e.EmployeeId = @employeeId
+    `);
+
+  return result.recordset[0] || null;
+}
+
+module.exports = { listEmployees, getEmployeeById };
