@@ -68,8 +68,14 @@ Server instance:
 |---|---|
 | [`db/01_schema.sql`](db/01_schema.sql) | Creates the `LLI_HR_DB` database, the `Users`, `Departments` and `Employees` tables, and supporting indexes |
 | [`db/02_seed.sql`](db/02_seed.sql) | Inserts the default admin user, 5 departments and 20 sample employees |
+| [`db/03_app_user.sql`](db/03_app_user.sql) | Creates the least-privilege `lli_hr_app` login the API connects as. **Change the password at the top of the file before running it.** |
 
-Both scripts are safe to re-run — nothing is duplicated or dropped.
+All three scripts are safe to re-run — nothing is duplicated or dropped.
+
+> The application does **not** connect as `sa`. `sa` is a server-wide
+> sysadmin that can drop any database on the instance; the API only needs
+> read/write on three tables. Script 3 grants exactly that, and explicitly
+> denies writes to the credential table.
 
 **Using the VS Code MSSQL extension:** `Ctrl+Shift+P` → *MS SQL: Connect* →
 server `localhost,1433`, SQL Login, user `sa`, your password, and trust the
@@ -89,8 +95,9 @@ npm install
 cp .env.example .env     # on Windows: copy .env.example .env
 ```
 
-Edit `server/.env` and set **`DB_PASSWORD`** to your `sa` password, and
-**`JWT_SECRET`** to any long random string:
+Edit `server/.env` — set **`DB_PASSWORD`** to the password you chose in
+`03_app_user.sql`, and **`JWT_SECRET`** to a random string of at least 32
+characters:
 
 ```ini
 PORT=5000
@@ -99,14 +106,27 @@ CLIENT_ORIGIN=http://localhost:5173
 DB_SERVER=localhost
 DB_PORT=1433
 DB_NAME=LLI_HR_DB
-DB_USER=sa
-DB_PASSWORD=your_sa_password_here
+DB_USER=lli_hr_app
+DB_PASSWORD=the_password_from_03_app_user.sql
 DB_ENCRYPT=true
 DB_TRUST_SERVER_CERTIFICATE=true
 
-JWT_SECRET=any_long_random_string
+JWT_SECRET=a_random_string_of_at_least_32_characters
 JWT_EXPIRES_IN=8h
 ```
+
+Generate a secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+> ⚠️ Put real values in **`.env`**, never in `.env.example`. The example
+> file is committed to git; `.env` is ignored. A test enforces this and
+> fails the build if a credential ever appears in a committed template.
+
+The server validates its configuration at startup and exits with a list of
+what is wrong, rather than failing later at request time.
 
 Then start it:
 
@@ -150,7 +170,36 @@ the database.
 
 ---
 
-## How to test
+## Running the tests
+
+```bash
+cd server
+npm test
+```
+
+99 integration tests run against the real database on the built-in
+`node:test` runner. They are executed serially because they share one
+database — running them in parallel makes the report totals flaky, since
+employee fixtures mutate the department the report counts.
+
+They cover:
+
+| Area | Examples |
+|---|---|
+| Authentication | Identical 401 message for unknown user and wrong password (no username enumeration); forged, expired and orphaned tokens rejected; password hash never serialised |
+| Route protection | Every non-login route returns 401 without a token |
+| CRUD | All four operations plus their 400 / 404 / 409 paths |
+| Regressions | Negative paging rejected; `UPDATE`/`DELETE` on a missing id returns 404 rather than a false success |
+| Reporting | Summary totals cross-checked against the returned rows; inclusive date bounds; empty ranges return zeros, not nulls |
+| CSV | Commas, quotes and newlines in the data cannot shift or break columns |
+| Configuration | Missing, blank, placeholder and too-short values all reported; committed `.env.example` files contain no real credentials |
+
+CI runs the same suite against a SQL Server service container on every
+push — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+---
+
+## How to test manually
 
 ### Login
 1. Open http://localhost:5173 — you are redirected to `/login`.
@@ -222,7 +271,21 @@ requires an `Authorization: Bearer <token>` header.
 | `401` | Missing, invalid or expired token; bad login credentials |
 | `404` | The requested employee id does not exist |
 | `409` | Employee code or email already belongs to another record |
+| `429` | Rate limit exceeded (10 failed logins per 15 minutes per IP) |
 | `500` | Unexpected server error (details are logged, not returned) |
+
+### Security measures
+
+| Measure | Detail |
+|---|---|
+| Password storage | bcrypt, cost 10 — the plain password is never stored or returned |
+| Brute-force protection | 10 failed logins per 15 min per IP; successful logins are not counted, so a legitimate user cannot lock themselves out |
+| Username enumeration | An unknown user and a wrong password return the identical 401 message |
+| SQL injection | Every query is parameterised; `ORDER BY` is restricted to a whitelist of columns |
+| Least privilege | The API connects as `lli_hr_app`, which cannot create tables, drop tables, create logins, or write to the credential table |
+| Transport headers | `helmet` sets CSP, `nosniff`, `X-Frame-Options` and HSTS, and removes `X-Powered-By` |
+| Payload size | JSON bodies capped at 100 kb |
+| Config safety | Startup fails on missing, placeholder or too-short secrets; a test blocks credentials from entering committed templates |
 
 ---
 
@@ -230,15 +293,21 @@ requires an `Authorization: Bearer <token>` header.
 
 ```
 .
+├── .github/
+│   ├── workflows/ci.yml         # API tests + client build on every push
+│   └── scripts/run-sql.js       # applies .sql files, splitting on GO
 ├── db/
 │   ├── 01_schema.sql            # database, tables, indexes
-│   └── 02_seed.sql              # admin user, departments, sample employees
+│   ├── 02_seed.sql              # admin user, departments, sample employees
+│   └── 03_app_user.sql          # least-privilege application login
 ├── server/
 │   ├── server.js                # entry point, startup and shutdown
+│   ├── tests/                   # 99 integration tests (node:test)
 │   └── src/
 │       ├── app.js               # express app, middleware, route mounting
 │       ├── config/db.js         # shared mssql connection pool
-│       ├── middleware/          # auth, validation, error handling
+│       ├── config/env.js        # startup configuration validation
+│       ├── middleware/          # auth, rate limiting, validation, errors
 │       ├── routes/              # route definitions
 │       ├── controllers/         # HTTP layer only
 │       ├── services/            # SQL and business logic
@@ -247,7 +316,8 @@ requires an `Authorization: Bearer <token>` header.
 └── client/
     └── src/
         ├── api/                 # axios instance and endpoint wrappers
-        ├── context/             # authentication state
+        ├── context/             # auth context and provider
+        ├── hooks/               # useAuth, useDebouncedValue
         ├── components/          # layout, route guard, employee form
         ├── pages/               # login, employees, report
         └── utils/format.js      # currency and date formatting
@@ -329,3 +399,38 @@ app wrapped in Ant Design's `<App>` component.
 Filtering while on page 3 initially returned an empty table: the new result set
 had fewer pages than the current page number. Any filter change now resets the
 page back to 1.
+
+### 7. Only validating the happy path
+
+The first version validated request *bodies* thoroughly but left query
+*parameters* untouched. `GET /api/employees?pageSize=-5` passed the negative
+value straight into the `OFFSET … FETCH NEXT` clause, where SQL Server rejected
+it and the client received a bare `500`. An unknown `status` was worse than an
+error: it silently returned zero rows, so the UI looked empty rather than
+broken. Query parameters are now validated to the same standard as bodies.
+
+### 8. `express-validator`'s sanitisers cannot write to `req.query` in Express 5
+
+Adding `.toInt()` to the paging rules appeared to work, but the response kept
+echoing `page` back as the string `"2"`. Express 5 exposes `req.query` as a
+getter, so the sanitised values are computed and then discarded. Arithmetic
+still coerced correctly, which is why nothing visibly broke — the controller
+now converts explicitly. A test comparing `page` with `assert.equal(…, 2)` is
+what surfaced it; manual testing never would have.
+
+### 9. Integration tests against a shared database cannot run in parallel
+
+Node's test runner executes files in parallel by default. The report totals
+tests began failing intermittently because the employee fixtures in another
+file create and delete records in the same department the report counts. Any
+assertion on an aggregate was racing the other file. The suite now runs
+serially, which for roughly ten seconds of runtime is the right trade.
+
+### 10. A near-miss with a committed credential
+
+A real database password was typed into `server/.env.example` rather than
+`server/.env`. The example file is committed, so it would have been published
+on the next push. It was caught before reaching a remote, and a test now fails
+the build if any committed `.env.example` contains something other than an
+obvious placeholder for a password, secret or token. It was verified by
+deliberately injecting a realistic secret and confirming the build fails.
