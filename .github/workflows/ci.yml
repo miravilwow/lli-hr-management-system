@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -54,10 +54,13 @@ jobs:
         run: npm ci
 
       - name: Create the database schema
-        run: node .github/scripts/run-sql.js db/01_schema.sql master
+        run: node scripts/run-sql.js db/01_schema.sql master
 
       - name: Seed the database
-        run: node .github/scripts/run-sql.js db/02_seed.sql LLI_HR_DB
+        run: node scripts/run-sql.js db/02_seed.sql LLI_HR_DB
+
+      - name: Apply governance migration
+        run: node scripts/run-sql.js db/04_governance.sql LLI_HR_DB
 
       - name: Run API tests
         working-directory: server
