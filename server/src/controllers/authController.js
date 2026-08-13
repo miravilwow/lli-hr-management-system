@@ -1,4 +1,5 @@
 const authService = require('../services/authService');
+const { ApiError } = require('../middleware/errorHandler');
 
 async function login(req, res) {
   const { username, password } = req.body;
@@ -6,4 +7,16 @@ async function login(req, res) {
   res.json(result);
 }
 
-module.exports = { login };
+/** Returns the account behind the presented token - used by the client on reload. */
+async function me(req, res) {
+  const user = await authService.getUserById(req.user.userId);
+
+  if (!user) {
+    // Token is well-formed but the account no longer exists.
+    throw new ApiError(401, 'Account no longer exists');
+  }
+
+  res.json(user);
+}
+
+module.exports = { login, me };
