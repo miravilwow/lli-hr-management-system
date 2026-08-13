@@ -1,10 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimit');
+const requestLogger = require('./middleware/requestLogger');
 const requireAuth = require('./middleware/auth');
 const authRoutes = require('./routes/authRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
@@ -27,8 +27,9 @@ app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173' }));
 // A CRUD payload is a few hundred bytes; anything near this is not legitimate.
 app.use(express.json({ limit: '100kb' }));
 
+// Assigned before anything else so even a rejected request is traceable.
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  app.use(requestLogger);
 }
 
 app.use('/api', apiLimiter);
