@@ -1,5 +1,10 @@
 require('dotenv').config();
 
+const { assertEnv } = require('./src/config/env');
+
+// Validate configuration before anything tries to use it.
+assertEnv();
+
 const app = require('./src/app');
 const { getPool, closePool } = require('./src/config/db');
 

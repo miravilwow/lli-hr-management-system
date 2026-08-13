@@ -1,8 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const morgan = require('morgan');
 
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const { apiLimiter } = require('./middleware/rateLimit');
 const requireAuth = require('./middleware/auth');
 const authRoutes = require('./routes/authRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
@@ -11,9 +13,21 @@ const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
+// Trust the first proxy hop so rate limiting keys on the real client IP
+// rather than the proxy's, if the API is ever put behind one.
+app.set('trust proxy', 1);
+
+app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173' }));
-app.use(express.json());
-app.use(morgan('dev'));
+
+// A CRUD payload is a few hundred bytes; anything near this is not legitimate.
+app.use(express.json({ limit: '100kb' }));
+
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan('dev'));
+}
+
+app.use('/api', apiLimiter);
 
 // Liveness probe, also handy for confirming the API is reachable.
 app.get('/api/health', (req, res) => {
